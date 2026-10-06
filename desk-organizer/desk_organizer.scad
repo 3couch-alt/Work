@@ -1,11 +1,11 @@
-// Clamp-on desk organizer: a phone stand at the desk edge facing outward, a Fire TV remote
-// pocket beside it, and a keys cup, a spare slot and a wallet pocket behind it on the desk.
+// Clamp-on desk organizer: a phone stand at the desk edge facing outward, with a keys cup,
+// a Fire TV remote slot and a wallet pocket behind it on the desk.
 // Clamps to a desk edge with a printed screw + nut (no hardware needed).
 //
 // The phone faces outward, away from the desk: clamped to the right side of a desk it faces
-// right, toward a bed or chair beside the desk, and the side remote pocket is on the end
-// toward the front of the desk. On the left side of a desk it faces left and the remote
-// pocket is toward the back.
+// right, toward a bed or chair beside the desk. Nothing sits beside the phone, so it can be
+// turned sideways. The stand is the same from either side, so one STL fits a left or right
+// desk edge.
 //
 // Requires the BOSL2 library (https://github.com/BelfrySCAD/BOSL2) for the threads.
 // Export:  openscad -D 'part="all_in_one"' -o organizer.stl desk_organizer.scad
@@ -20,6 +20,7 @@ include <BOSL2/threading.scad>
 
 /* [Which part] */
 part = "assembly";        // [all_in_one, body, screw, nut, assembly]
+phone_sideways = false;   // assembly preview only: show the phone turned sideways
 
 /* [Desk] */
 desk_max = 40;            // thickest desk the clamp fits (mm). Thinnest is about 9 mm.
@@ -40,16 +41,16 @@ stand_wall = 4;           // lid and back wall of the stand
 cable_hole = true;        // USB-C cable hole under the phone, into a side-to-side tunnel
 
 /* [Pockets] */
-row1_t = 30;              // front row (keys cup + spare slot), measured front to back
+row1_t = 30;              // front row (keys cup + remote slot), measured front to back
 keys_depth = 40;
-remote_w = 44;            // spare slot, sized like the side remote pocket (second remote, pens...)
+remote_w = 44;            // Fire TV remotes are 38 mm wide and 16-18 mm thick
 remote_t = 22;
 remote_depth = 60;
 wallet_t = 32;            // back row: fits a bifold wallet up to ~28 mm thick
 wallet_depth = 60;
 
 /* [Side remote pocket] */
-side_pocket = true;       // remote pocket beside the phone at the outer edge, easy to reach
+side_pocket = false;      // extra remote pocket beside the phone; it stops the phone turning sideways
 side_w = 44;              // along the desk edge; Fire TV remotes are 38 mm wide
 side_t = 22;              // front to back; they are 16-18 mm thick
 
@@ -105,7 +106,8 @@ y_end = y_wallet[0] - wall;
 x_remote = width - wall - remote_w;
 
 // Cable: a channel along the phone's long axis from the USB-C port down into a tunnel
-// that runs side to side under the ledge and out the end away from the remote pocket.
+// that runs side to side under the ledge and out either end (only the far end when the side
+// pocket is on).
 tunnel = [g[0] + 3.5, lip_y - 2.5];            // Y range
 tunnel_z = [base_t, base_t + 14];
 cable_top = p0 + 6 * sf + 4 * su;
@@ -185,7 +187,7 @@ module body() {
             cube([x_remote - 2 * wall, row1_t, keys_depth + 1]);
         translate([wall, y_row1[0], -1])
             cube([x_remote - 2 * wall, row1_t, pocket_h - keys_depth - floor_t + 1]);
-        // spare slot, at the back of the front row so whatever is in it can't lean onto the phone
+        // remote slot, at the back of the front row so the remote can't lean onto the phone
         translate([x_remote, y_row1[0], pocket_h - remote_depth])
             cube([remote_w, remote_t, remote_depth + 1]);
         // wallet pocket
@@ -230,8 +232,8 @@ module nut() {
 }
 
 module body_print() {
-    // standing on the remote-pocket end: the clamp and stand profiles lie flat on the plate,
-    // so nothing needs supports
+    // standing on its end (the side-pocket end, if there is one): the clamp and stand
+    // profiles lie flat on the plate, so nothing needs supports
     translate([0, 0, total_len]) rotate([0, 90, 0]) body();
 }
 
@@ -255,12 +257,20 @@ if (part == "all_in_one") {
     color("#f2a33a") translate([screw_x, screw_y, -gap - nut_h]) nut();
     color("#f2a33a") translate([screw_x, screw_y, -desk - knob_h - screw_len]) screw();
     // stand-ins: Galaxy S23 Ultra in a case, a Fire TV remote and a wallet
-    color("#333", 0.9)
-        translate([(width - 82) / 2, p0[0], p0[1]])
-            rotate([90 - stand_angle, 0, 0]) cube([82, 12, 167]);
-    if (side_pocket)
-        color("#222")
+    color("#333", 0.9) {
+        if (phone_sideways)
+            translate([(width - 167) / 2, p0[0], p0[1]])
+                rotate([90 - stand_angle, 0, 0]) cube([167, 12, 82]);
+        else
+            translate([(width - 82) / 2, p0[0], p0[1]])
+                rotate([90 - stand_angle, 0, 0]) cube([82, 12, 167]);
+    }
+    color("#222") {
+        if (side_pocket)
             translate([width + wall + 3, spine - wall - side_t + 2.5, base_t]) cube([38, 17, 150]);
+        else
+            translate([x_remote + 3, y_row1[0] + 2.5, floor_t]) cube([38, 17, 150]);
+    }
     color("#7a4a2a", 0.9)
         translate([wall + 2, y_wallet[0] + 3, floor_t]) cube([88, 22, 112]);
 }
