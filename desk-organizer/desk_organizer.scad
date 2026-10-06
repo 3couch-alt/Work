@@ -7,6 +7,9 @@
 // turned sideways. The stand is the same from either side, so one STL fits a left or right
 // desk edge.
 //
+// The body is one side profile (clamp, fin-shaped stand, pocket block) run along the desk
+// edge, with the pockets cut into it, so it prints standing on its end without supports.
+//
 // Requires the BOSL2 library (https://github.com/BelfrySCAD/BOSL2) for the threads.
 // Export:  openscad -D 'part="all_in_one"' -o organizer.stl desk_organizer.scad
 // Parts: "all_in_one" (body + screw + nut on one plate), "body", "screw", "nut",
@@ -35,9 +38,10 @@ stand_ledge = 17;         // thickest phone + case the ledge holds
 stand_lip = 7;            // lip height in front of the phone
 stand_lip_t = 4;
 stand_height = 28;        // ledge corner height above the desk (room for a USB-C plug below)
-backrest_len = 100;
+backrest_len = 100;       // straight part of the backrest the phone leans on
 backrest_t = 5;
-stand_wall = 4;           // lid and back wall of the stand
+stand_wall = 4;           // back wall of the fin
+tip_r = 4;                // rounding at the top of the fin
 cable_hole = true;        // USB-C cable hole under the phone, into a side-to-side tunnel
 
 /* [Pockets] */
@@ -46,8 +50,9 @@ keys_depth = 40;
 remote_w = 44;            // Fire TV remotes are 38 mm wide and 16-18 mm thick
 remote_t = 22;
 remote_depth = 60;
-wallet_t = 32;            // back row: fits a bifold wallet up to ~28 mm thick
+wallet_t = 34;            // back row: fits a bifold wallet up to ~28 mm thick
 wallet_depth = 60;
+rim = 0.8;                // bevel around the pocket openings
 
 /* [Side remote pocket] */
 side_pocket = false;      // extra remote pocket beside the phone; it stops the phone turning sideways
@@ -60,6 +65,7 @@ floor_t = 2.4;
 spine = 10;               // outside the desk edge, from the stand down to the lower jaw
 base_t = 8;               // base under the stand; it is also the clamp's top jaw
 bottom_jaw_t = 18;
+round_r = 6;              // rounding on the outside corners
 
 /* [Screw] */
 screw_d = 16;
@@ -83,8 +89,37 @@ total_len = width + side_len;            // whole organizer along the desk edge
 screw_x = total_len / 2;
 screw_y = -jaw_depth / 2 - 3;
 
-// Phone stand profile, in the Y-Z plane. The phone's back rests on the backrest and its
-// bottom edge sits in the corner p0 between the backrest and the ledge.
+// --- 2D helpers -------------------------------------------------------------------------
+
+function dz_unit(v) = v / norm(v);
+function dz_cross(a, b) = a[0] * b[1] - a[1] * b[0];
+// Where the line through p along u meets the line through q along v.
+function dz_meet(p, u, q, v) = p + u * (dz_cross(q - p, v) / dz_cross(u, v));
+
+// Arc of radius r that rounds the corner at b between neighbours a and c (works for both
+// outside corners and inside fillets).
+function dz_corner_arc(a, b, c, r, n = 10) =
+    let(u1 = dz_unit(a - b), u2 = dz_unit(c - b),
+        half = acos(max(-1, min(1, u1 * u2))) / 2,
+        d = r / tan(half),
+        t1 = b + u1 * d, t2 = b + u2 * d,
+        ctr = b + dz_unit(u1 + u2) * (r / sin(half)),
+        a1 = atan2(t1[1] - ctr[1], t1[0] - ctr[0]),
+        a2 = atan2(t2[1] - ctr[1], t2[0] - ctr[0]),
+        da = ((a2 - a1 + 540) % 360) - 180)
+    [for (i = [0 : n]) ctr + r * [cos(a1 + da * i / n), sin(a1 + da * i / n)]];
+
+// Polygon whose corner i is rounded with radii[i] (0 = sharp).
+function dz_rounded_poly(pts, radii) =
+    let(m = len(pts))
+    [for (i = [0 : m - 1])
+        each (radii[i] > 0 ? dz_corner_arc(pts[(i + m - 1) % m], pts[i], pts[(i + 1) % m], radii[i])
+                           : [pts[i]])];
+
+// --- Side profile (Y-Z plane) ----------------------------------------------------------
+
+// Phone stand: the phone's back rests on the backrest and its bottom edge sits in the
+// corner p0 between the backrest and the ledge.
 su = [-cos(stand_angle), sin(stand_angle)];    // up the backrest (it leans back over the desk)
 sf = [sin(stand_angle), cos(stand_angle)];     // toward the screen side (outward)
 lip_y = spine;                                 // the lip is flush with the outer face
@@ -93,14 +128,15 @@ p1 = p0 + stand_ledge * sf;                    // front end of the ledge
 p2 = p1 + stand_lip * su;                      // top of the lip
 b0 = p0 - backrest_t * sf;                     // bottom of the backrest's back face
 g = b0 - ((b0[1] - base_t) / sin(stand_angle)) * su;   // back face meets the base
-top_back = b0 + backrest_len * su;             // top of the backrest's back face
 phone_top = p0 + phone_len * su;               // top of the phone's back
-y_back = phone_top[0] - 2;                     // front face of the stand's back wall
-z_lid = top_back[1];                           // top of the stand's lid
+y_q = phone_top[0] - 2 - stand_wall;           // back of the fin = front of the pockets
+pocket_h = max(keys_depth, remote_depth, wallet_depth) + floor_t;
+q = [y_q, pocket_h];                           // where the fin's back meets the pocket rims
+// Fin tip before rounding, placed so about backrest_len of the front stays straight.
+apex = p0 + (backrest_len + tip_r / tan(15)) * su;
 
 // Pockets behind the stand: keys cup and remote slot in the front row, wallet behind them.
-pocket_h = max(keys_depth, remote_depth, wallet_depth) + floor_t;
-y_row1 = [y_back - stand_wall - row1_t, y_back - stand_wall];
+y_row1 = [y_q - row1_t, y_q];
 y_wallet = [y_row1[0] - wall - wallet_t, y_row1[0] - wall];
 y_end = y_wallet[0] - wall;
 x_remote = width - wall - remote_w;
@@ -115,40 +151,58 @@ cable_len = (cable_top[1] - (tunnel_z[0] + tunnel_z[1]) / 2) / sin(stand_angle);
 cable_end = cable_top - cable_len * su;
 assert(cable_end[0] - 4.5 * sin(stand_angle) >= tunnel[0], "cable hole misses the tunnel");
 assert(cable_end[0] + 4.5 * sin(stand_angle) <= tunnel[1], "cable hole misses the tunnel");
-assert(y_row1[1] < phone_top[0], "pockets would sit under the phone");
+assert(y_q < phone_top[0], "pockets would sit under the phone");
 
-// Extrude a 2D profile drawn in (y, z) along X, from x0 to x0 + len.
-module yz_extrude(x0, len) {
-    multmatrix([[0, 0, 1, x0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
-        linear_extrude(len) children();
+// Clamp: spine outside the desk edge and the lower jaw, with rounded corners.
+module clamp_2d() {
+    polygon(dz_rounded_poly(
+        [[lip_y, 1], [lip_y, z_bot], [-jaw_depth, z_bot], [-jaw_depth, -gap], [0, -gap], [0, 1]],
+        [0, round_r, bottom_jaw_t / 2 - 0.1, bottom_jaw_t / 2 - 0.1, 6, 0]));
 }
 
-module jaw(z0, t) {
-    r = t / 2;
-    hull() {
-        translate([0, -jaw_depth + r, z0]) cube([total_len, jaw_depth - r + spine, t]);
-        translate([0, -jaw_depth + r, z0 + r]) rotate([0, 90, 0]) cylinder(r = r, h = total_len);
+// Stand: base on the desk, ledge and lip at the edge, and a fin whose front is the backrest
+// and whose back drops into the front row of pockets.
+module fin_2d() {
+    polygon(dz_rounded_poly(
+        [[lip_y, 0], [lip_y, p2[1]], p2, p1, p0, apex, q, [y_q, 0]],
+        [0, 1.5, 1, 1, 1, tip_r, 10, 0]));
+}
+
+// Window through the fin, leaving the backrest and a stand_wall-thick back.
+module fin_window_2d() {
+    back_dir = dz_unit(q - apex);
+    inner_back = q + stand_wall * [-back_dir[1], back_dir[0]];   // back line moved inward
+    v1 = g;
+    v2 = dz_meet(b0, su, inner_back, back_dir);
+    v3 = dz_meet(inner_back, back_dir, [y_q + stand_wall, 0], [0, 1]);
+    v4 = [y_q + stand_wall, base_t];
+    polygon(dz_rounded_poly([v1, v2, v3, v4], [3, 1.5, 6, 4]));
+}
+
+// Pocket block behind the fin, with a rounded top-back edge.
+module pocket_block_2d() {
+    polygon(dz_rounded_poly(
+        [[y_q + 0.5, 0], [y_q + 0.5, pocket_h], [y_end, pocket_h], [y_end, 0]],
+        [0, 0, round_r, 2]));
+}
+
+// Wallet pocket; its back wall follows the rounded edge at an even thickness.
+module wallet_cut_2d() {
+    c = [y_end + round_r, pocket_h - round_r];
+    difference() {
+        translate([y_wallet[0], pocket_h - wallet_depth])
+            square([wallet_t, wallet_depth + 1]);
+        difference() {
+            translate([y_end - 1, c[1]]) square([c[0] - y_end + 1, round_r + 2]);
+            translate(c) circle(r = round_r - wall);
+        }
     }
 }
 
-// Each piece is extruded on its own: merging them as one 2D outline first leaves a
-// non-closed mesh in OpenSCAD 2021.
-module stand() {
-    // ledge and lip, on the base
-    yz_extrude(0, total_len)
-        polygon([[lip_y, base_t - 0.5], [lip_y, p2[1]], p2, p1, p0,
-                 p0 + 2 * su, b0 + 2 * su, g, [g[0], base_t - 0.5]]);   // overlaps the backrest
-    // backrest with a rounded top
-    yz_extrude(0, total_len)
-        hull() {
-            polygon([p0, b0, b0 + 0.1 * su, p0 + 0.1 * su]);
-            translate(p0 + backrest_len * su - backrest_t / 2 * sf) circle(d = backrest_t);
-        }
-    // lid and back wall; the back wall is also the front wall of the pockets
-    yz_extrude(0, total_len)
-        polygon([[y_back - stand_wall, base_t - 0.5], [y_back, base_t - 0.5],
-                 [y_back, z_lid - stand_wall], [top_back[0] + 2, z_lid - stand_wall],
-                 [top_back[0] + 2, z_lid], [y_back - stand_wall, z_lid]]);
+module tunnel_2d() {
+    offset(r = 2) offset(delta = -2)
+        translate([tunnel[0], tunnel_z[0]])
+            square([tunnel[1] - tunnel[0], tunnel_z[1] - tunnel_z[0]]);
 }
 
 module cable_2d() {
@@ -163,36 +217,47 @@ module teardrop2d(d) {
     }
 }
 
+// Extrude a 2D profile drawn in (y, z) along X, from x0 to x0 + len.
+module yz_extrude(x0, len) {
+    multmatrix([[0, 0, 1, x0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
+        linear_extrude(len) children();
+}
+
+// 45-degree bevel around the top of a pocket opening (x0..x1, y0..y1).
+module rim_bevel(x0, x1, y0, y1) {
+    hull() {
+        translate([x0, y0, pocket_h - rim]) cube([x1 - x0, y1 - y0, 0.01]);
+        translate([x0 - rim, y0 - rim, pocket_h]) cube([x1 - x0 + 2 * rim, y1 - y0 + 2 * rim, 0.01]);
+    }
+}
+
 module body() {
     difference() {
         union() {
-            // spine outside the desk edge, from the base down to the lower jaw
-            translate([0, 0, z_bot]) cube([total_len, spine, base_t - z_bot]);
-            // base under the stand; it rests on the desk as the clamp's top jaw
-            translate([0, y_back - stand_wall - 0.5, 0])
-                cube([total_len, spine - (y_back - stand_wall - 0.5), base_t]);
-            jaw(z_bot, bottom_jaw_t);
-            // fillet in the lower inside corner of the clamp
-            yz_extrude(0, total_len) polygon([[0, -gap], [0, -gap + 6], [-6, -gap]]);
-            stand();
-            // pocket block
-            translate([0, y_end, 0]) cube([total_len, y_row1[1] - y_end + 0.5, pocket_h]);
+            yz_extrude(0, total_len) clamp_2d();
+            yz_extrude(0, total_len) fin_2d();
+            yz_extrude(0, total_len) pocket_block_2d();
             // side remote pocket, at the outer edge beside the phone
             if (side_pocket)
                 translate([width, spine - 2 * wall - side_t, 0])
                     cube([side_len, 2 * wall + side_t, pocket_h]);
         }
+        yz_extrude(-1, total_len + 2) fin_window_2d();
+
         // keys cup, with an open space under its raised floor
         translate([wall, y_row1[0], pocket_h - keys_depth])
             cube([x_remote - 2 * wall, row1_t, keys_depth + 1]);
         translate([wall, y_row1[0], -1])
             cube([x_remote - 2 * wall, row1_t, pocket_h - keys_depth - floor_t + 1]);
+        rim_bevel(wall, x_remote - wall, y_row1[0], y_row1[1]);
         // remote slot, at the back of the front row so the remote can't lean onto the phone
         translate([x_remote, y_row1[0], pocket_h - remote_depth])
             cube([remote_w, remote_t, remote_depth + 1]);
+        rim_bevel(x_remote, x_remote + remote_w, y_row1[0], y_row1[0] + remote_t);
         // wallet pocket
-        translate([wall, y_wallet[0], pocket_h - wallet_depth])
-            cube([inner_len, wallet_t, wallet_depth + 1]);
+        yz_extrude(wall, inner_len) wallet_cut_2d();
+        rim_bevel(wall, wall + inner_len, y_end + round_r, y_wallet[1]);
+
         if (side_pocket) {
             translate([width + wall, spine - wall - side_t, base_t]) cube([side_w, side_t, pocket_h]);
             // open-bottom spaces under the pocket block beside the pockets save plastic
@@ -202,9 +267,7 @@ module body() {
         }
         if (cable_hole) {
             yz_extrude(width / 2 - 7, 14) cable_2d();
-            yz_extrude(-1, side_pocket ? width + 1 : width + 2)
-                translate([tunnel[0], tunnel_z[0]])
-                    square([tunnel[1] - tunnel[0], tunnel_z[1] - tunnel_z[0]]);
+            yz_extrude(-1, side_pocket ? width + 1 : width + 2) tunnel_2d();
         }
         // hex pocket for the printed nut, open toward the clamp gap; flat sides face along X
         // so it prints as a short bridge
@@ -232,8 +295,8 @@ module nut() {
 }
 
 module body_print() {
-    // standing on its end (the side-pocket end, if there is one): the clamp and stand
-    // profiles lie flat on the plate, so nothing needs supports
+    // standing on its end (the side-pocket end, if there is one): the profile lies flat on
+    // the plate, so nothing needs supports
     translate([0, 0, total_len]) rotate([0, 90, 0]) body();
 }
 
@@ -272,5 +335,5 @@ if (part == "all_in_one") {
             translate([x_remote + 3, y_row1[0] + 2.5, floor_t]) cube([38, 17, 150]);
     }
     color("#7a4a2a", 0.9)
-        translate([wall + 2, y_wallet[0] + 3, floor_t]) cube([88, 22, 112]);
+        translate([wall + 2, y_wallet[0] + 4, floor_t]) cube([88, 24, 112]);
 }
