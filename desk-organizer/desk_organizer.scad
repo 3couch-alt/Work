@@ -1,10 +1,11 @@
-// Clamp-on desk organizer: a phone stand at the desk edge facing outward, with a keys cup,
-// a Fire TV remote slot and a wallet pocket behind it on the desk.
+// Clamp-on desk organizer: a phone stand at the desk edge facing outward, a Fire TV remote
+// pocket beside it, and a keys cup, a spare slot and a wallet pocket behind it on the desk.
 // Clamps to a desk edge with a printed screw + nut (no hardware needed).
 //
 // The phone faces outward, away from the desk: clamped to the right side of a desk it faces
-// right, toward a bed or chair beside the desk. The pockets sit behind the stand on the desk.
-// The stand is the same from either side, so one STL fits a left or right desk edge.
+// right, toward a bed or chair beside the desk, and the side remote pocket is on the end
+// toward the front of the desk. On the left side of a desk it faces left and the remote
+// pocket is toward the back.
 //
 // Requires the BOSL2 library (https://github.com/BelfrySCAD/BOSL2) for the threads.
 // Export:  openscad -D 'part="all_in_one"' -o organizer.stl desk_organizer.scad
@@ -39,13 +40,18 @@ stand_wall = 4;           // lid and back wall of the stand
 cable_hole = true;        // USB-C cable hole under the phone, into a side-to-side tunnel
 
 /* [Pockets] */
-row1_t = 30;              // front row (keys cup + remote slot), measured front to back
+row1_t = 30;              // front row (keys cup + spare slot), measured front to back
 keys_depth = 40;
-remote_w = 44;            // Fire TV remotes are 38 mm wide and 16-18 mm thick
+remote_w = 44;            // spare slot, sized like the side remote pocket (second remote, pens...)
 remote_t = 22;
 remote_depth = 60;
 wallet_t = 32;            // back row: fits a bifold wallet up to ~28 mm thick
 wallet_depth = 60;
+
+/* [Side remote pocket] */
+side_pocket = true;       // remote pocket beside the phone at the outer edge, easy to reach
+side_w = 44;              // along the desk edge; Fire TV remotes are 38 mm wide
+side_t = 22;              // front to back; they are 16-18 mm thick
 
 /* [Structure] */
 wall = 2.4;
@@ -70,7 +76,10 @@ $fs = 0.4;
 gap = desk_max + 6;                      // 6 mm fillet sits in the lower inside corner
 z_bot = -(gap + bottom_jaw_t);
 inner_len = phone_w_max + 8;
-width = inner_len + 2 * wall;            // length along the desk edge
+width = inner_len + 2 * wall;            // length of the phone stand along the desk edge
+side_len = side_pocket ? side_w + 2 * wall : 0;
+total_len = width + side_len;            // whole organizer along the desk edge
+screw_x = total_len / 2;
 screw_y = -jaw_depth / 2 - 3;
 
 // Phone stand profile, in the Y-Z plane. The phone's back rests on the backrest and its
@@ -96,7 +105,7 @@ y_end = y_wallet[0] - wall;
 x_remote = width - wall - remote_w;
 
 // Cable: a channel along the phone's long axis from the USB-C port down into a tunnel
-// that runs side to side under the ledge, so the cable leaves from either end.
+// that runs side to side under the ledge and out the end away from the remote pocket.
 tunnel = [g[0] + 3.5, lip_y - 2.5];            // Y range
 tunnel_z = [base_t, base_t + 14];
 cable_top = p0 + 6 * sf + 4 * su;
@@ -115,8 +124,8 @@ module yz_extrude(x0, len) {
 module jaw(z0, t) {
     r = t / 2;
     hull() {
-        translate([0, -jaw_depth + r, z0]) cube([width, jaw_depth - r + spine, t]);
-        translate([0, -jaw_depth + r, z0 + r]) rotate([0, 90, 0]) cylinder(r = r, h = width);
+        translate([0, -jaw_depth + r, z0]) cube([total_len, jaw_depth - r + spine, t]);
+        translate([0, -jaw_depth + r, z0 + r]) rotate([0, 90, 0]) cylinder(r = r, h = total_len);
     }
 }
 
@@ -124,17 +133,17 @@ module jaw(z0, t) {
 // non-closed mesh in OpenSCAD 2021.
 module stand() {
     // ledge and lip, on the base
-    yz_extrude(0, width)
+    yz_extrude(0, total_len)
         polygon([[lip_y, base_t - 0.5], [lip_y, p2[1]], p2, p1, p0,
                  p0 + 2 * su, b0 + 2 * su, g, [g[0], base_t - 0.5]]);   // overlaps the backrest
     // backrest with a rounded top
-    yz_extrude(0, width)
+    yz_extrude(0, total_len)
         hull() {
             polygon([p0, b0, b0 + 0.1 * su, p0 + 0.1 * su]);
             translate(p0 + backrest_len * su - backrest_t / 2 * sf) circle(d = backrest_t);
         }
     // lid and back wall; the back wall is also the front wall of the pockets
-    yz_extrude(0, width)
+    yz_extrude(0, total_len)
         polygon([[y_back - stand_wall, base_t - 0.5], [y_back, base_t - 0.5],
                  [y_back, z_lid - stand_wall], [top_back[0] + 2, z_lid - stand_wall],
                  [top_back[0] + 2, z_lid], [y_back - stand_wall, z_lid]]);
@@ -145,10 +154,10 @@ module cable_2d() {
 }
 
 module teardrop2d(d) {
-    // points toward +X, which is "up" in the print orientation
+    // points toward -X, which is "up" in the print orientation
     hull() {
         circle(d = d);
-        translate([d / 2 * sqrt(2), 0]) square(0.01, center = true);
+        translate([-d / 2 * sqrt(2), 0]) square(0.01, center = true);
     }
 }
 
@@ -156,40 +165,51 @@ module body() {
     difference() {
         union() {
             // spine outside the desk edge, from the base down to the lower jaw
-            translate([0, 0, z_bot]) cube([width, spine, base_t - z_bot]);
+            translate([0, 0, z_bot]) cube([total_len, spine, base_t - z_bot]);
             // base under the stand; it rests on the desk as the clamp's top jaw
             translate([0, y_back - stand_wall - 0.5, 0])
-                cube([width, spine - (y_back - stand_wall - 0.5), base_t]);
+                cube([total_len, spine - (y_back - stand_wall - 0.5), base_t]);
             jaw(z_bot, bottom_jaw_t);
             // fillet in the lower inside corner of the clamp
-            yz_extrude(0, width) polygon([[0, -gap], [0, -gap + 6], [-6, -gap]]);
+            yz_extrude(0, total_len) polygon([[0, -gap], [0, -gap + 6], [-6, -gap]]);
             stand();
             // pocket block
-            translate([0, y_end, 0]) cube([width, y_row1[1] - y_end + 0.5, pocket_h]);
+            translate([0, y_end, 0]) cube([total_len, y_row1[1] - y_end + 0.5, pocket_h]);
+            // side remote pocket, at the outer edge beside the phone
+            if (side_pocket)
+                translate([width, spine - 2 * wall - side_t, 0])
+                    cube([side_len, 2 * wall + side_t, pocket_h]);
         }
         // keys cup, with an open space under its raised floor
         translate([wall, y_row1[0], pocket_h - keys_depth])
             cube([x_remote - 2 * wall, row1_t, keys_depth + 1]);
         translate([wall, y_row1[0], -1])
             cube([x_remote - 2 * wall, row1_t, pocket_h - keys_depth - floor_t + 1]);
-        // remote slot, at the back of the front row so the remote can't lean onto the phone
+        // spare slot, at the back of the front row so whatever is in it can't lean onto the phone
         translate([x_remote, y_row1[0], pocket_h - remote_depth])
             cube([remote_w, remote_t, remote_depth + 1]);
         // wallet pocket
         translate([wall, y_wallet[0], pocket_h - wallet_depth])
             cube([inner_len, wallet_t, wallet_depth + 1]);
+        if (side_pocket) {
+            translate([width + wall, spine - wall - side_t, base_t]) cube([side_w, side_t, pocket_h]);
+            // open-bottom spaces under the pocket block beside the pockets save plastic
+            for (yr = [y_row1, y_wallet])
+                translate([width, yr[0], -1])
+                    cube([side_len - wall, yr[1] - yr[0], pocket_h - floor_t + 1]);
+        }
         if (cable_hole) {
             yz_extrude(width / 2 - 7, 14) cable_2d();
-            yz_extrude(-1, width + 2)
+            yz_extrude(-1, side_pocket ? width + 1 : width + 2)
                 translate([tunnel[0], tunnel_z[0]])
                     square([tunnel[1] - tunnel[0], tunnel_z[1] - tunnel_z[0]]);
         }
-        // hex pocket for the printed nut, open toward the clamp gap; flat side faces +X so
-        // it prints as a short bridge
-        translate([width / 2, screw_y, -gap - nut_h - 0.5])
+        // hex pocket for the printed nut, open toward the clamp gap; flat sides face along X
+        // so it prints as a short bridge
+        translate([screw_x, screw_y, -gap - nut_h - 0.5])
             rotate([0, 0, 30]) cylinder(d = (nut_af + 0.4) / cos(30), h = nut_h + 1, $fn = 6);
         // screw clearance through the rest of the jaw
-        translate([width / 2, screw_y, z_bot - 1])
+        translate([screw_x, screw_y, z_bot - 1])
             linear_extrude(bottom_jaw_t + 2) teardrop2d(screw_d + 1);
     }
 }
@@ -210,16 +230,17 @@ module nut() {
 }
 
 module body_print() {
-    // standing on its end: the clamp and stand profiles lie flat on the plate, no supports
-    rotate([0, -90, 0]) body();
+    // standing on the remote-pocket end: the clamp and stand profiles lie flat on the plate,
+    // so nothing needs supports
+    translate([0, 0, total_len]) rotate([0, 90, 0]) body();
 }
 
 if (part == "all_in_one") {
     // body, screw and nut on one P2S plate (256 x 256); the screw and nut sit in the empty
     // space under the pockets, beside the clamp
     body_print();
-    translate([-z_bot / 2, y_end + 22, 0]) screw();
-    translate([24, -64, 0]) nut();
+    translate([z_bot / 2, y_end + 22, 0]) screw();
+    translate([-24, -64, 0]) nut();
 } else if (part == "body") {
     body_print();
 } else if (part == "screw") {
@@ -229,16 +250,17 @@ if (part == "all_in_one") {
 } else {
     // assembled preview on a 25 mm desk
     desk = 25;
-    color("#c8a27a") translate([-60, -400, -desk]) cube([width + 120, 400, desk]);
+    color("#c8a27a") translate([-60, -400, -desk]) cube([total_len + 120, 400, desk]);
     color("#5b8def") body();
-    color("#f2a33a") translate([width / 2, screw_y, -gap - nut_h]) nut();
-    color("#f2a33a") translate([width / 2, screw_y, -desk - knob_h - screw_len]) screw();
+    color("#f2a33a") translate([screw_x, screw_y, -gap - nut_h]) nut();
+    color("#f2a33a") translate([screw_x, screw_y, -desk - knob_h - screw_len]) screw();
     // stand-ins: Galaxy S23 Ultra in a case, a Fire TV remote and a wallet
     color("#333", 0.9)
         translate([(width - 82) / 2, p0[0], p0[1]])
             rotate([90 - stand_angle, 0, 0]) cube([82, 12, 167]);
-    color("#222")
-        translate([x_remote + 3, y_row1[0] + 3, floor_t]) cube([38, 17, 150]);
+    if (side_pocket)
+        color("#222")
+            translate([width + wall + 3, spine - wall - side_t + 2.5, base_t]) cube([38, 17, 150]);
     color("#7a4a2a", 0.9)
         translate([wall + 2, y_wallet[0] + 3, floor_t]) cube([88, 22, 112]);
 }
