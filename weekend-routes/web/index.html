@@ -80,7 +80,7 @@ body {
 }
 body.has-bar { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 [hidden] { display: none !important; }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
@@ -151,7 +151,7 @@ h1 {
   text-transform: uppercase;
   color: var(--muted);
 }
-input[type="text"], input[type="email"], input[type="url"], input[type="password"], input[type="date"], select {
+input[type="text"], input[type="email"], input[type="url"], input[type="password"], input[type="date"], input[type="time"], select {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
@@ -160,7 +160,19 @@ input[type="text"], input[type="email"], input[type="url"], input[type="password
   background: var(--surface);
   font-size: 1.05rem;
 }
-input:focus, select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+textarea {
+  width: 100%;
+  min-height: 84px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 1rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+input[readonly] { background: var(--surface-2); color: var(--muted); }
 input.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
 .hint { margin: 0; font-size: .88rem; color: var(--muted); }
 .hint.error { color: var(--danger); font-weight: 500; }
@@ -258,6 +270,26 @@ button.slot[aria-pressed="true"] .check svg { display: block; }
 .who.quiet { font-weight: 500; color: var(--muted); font-size: .88rem; }
 .slot.taken .who { font-size: 1rem; }
 .slot.past { opacity: .55; }
+.slot-details { grid-column: 2 / -1; margin-top: -4px; font-size: .86rem; color: var(--muted); overflow-wrap: anywhere; }
+
+/* ---------- Route details (board) ---------- */
+.route-info { margin-top: 18px; }
+.route-info > summary {
+  list-style: none; cursor: pointer; padding: 14px 16px;
+  display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between;
+}
+.route-info > summary::-webkit-details-marker { display: none; }
+.ri-title { font: 700 1.3rem/1.1 var(--font-display); letter-spacing: .01em; }
+.ri-title::before { content: "\25B8"; display: inline-block; margin-right: 8px; color: var(--muted); transition: transform .15s; }
+.route-info[open] .ri-title::before { transform: rotate(90deg); }
+.ri-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 0 16px 16px; }
+.ri-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; background: var(--surface-2); }
+.ri-card h3 { margin: 0 0 10px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ri-card h3 .code b { font-size: 1.5rem; }
+.ri-card h3 > span:last-child { color: var(--muted); font-weight: 500; font-size: .9rem; }
+.ri-card dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 12px; }
+.ri-card dt { font-size: .72rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.ri-card dd { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
 .empty-day { padding: 16px; color: var(--muted); margin: 0; }
 .more { margin-top: 26px; }
 
@@ -353,7 +385,21 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
 .mail-status { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-weight: 500; overflow-wrap: anywhere; }
 .mail-status.good { background: var(--open-soft); color: var(--open); }
 .mail-status.warn { background: var(--pending-soft); color: var(--pending); }
-.mail-what { display: grid; min-width: 0; }
+.mail-what, .stack { display: grid; min-width: 0; }
+.actions-inline { display: flex; gap: 8px; flex-wrap: wrap; }
+.routes-panel { grid-column: 1 / -1; }
+.routes-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px 28px; align-items: start; }
+.route-form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); min-width: 0; }
+.route-form h3 { margin: 0; font: 700 1.2rem/1.1 var(--font-display); letter-spacing: .02em; }
+.extras { display: grid; gap: 8px; }
+.extras:empty { display: none; }
+.extra-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto; gap: 8px; align-items: center; }
+.icon-btn {
+  width: 44px; height: 46px; border-radius: 8px; border: 1.5px solid var(--line);
+  background: var(--surface); color: var(--muted); cursor: pointer; font-size: 1.3rem; line-height: 1;
+}
+.icon-btn:hover { color: var(--danger); border-color: var(--danger); }
+.add-extra { justify-self: start; }
 .mail-log-title { margin: 16px 0 4px; }
 
 @media (max-width: 520px) {
@@ -497,24 +543,55 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
             </form>
           </section>
 
-          <section class="panel" aria-labelledby="routes-title">
+          <section class="panel routes-panel" aria-labelledby="routes-title">
             <h2 id="routes-title">Routes</h2>
-            <p class="sub">Retiring a route hides it and declines its pending requests.</p>
-            <ul class="plain-list" id="routes-list"></ul>
-            <form id="route-form" class="row-form" style="margin-top:12px">
-              <div class="field">
-                <label for="new-route">Route code</label>
-                <input id="new-route" type="text" maxlength="20" required placeholder="SCCOL26" autocapitalize="characters">
-              </div>
-              <div class="field">
-                <label for="new-route-day">Runs on</label>
-                <select id="new-route-day">
-                  <option>Saturday</option>
-                  <option>Sunday</option>
-                </select>
-              </div>
-              <button class="btn" type="submit">Add route</button>
-            </form>
+            <p class="sub">Add routes with details drivers should know, like start time, where to report and the area covered. Drivers see the details on the board. Retiring a route hides it and declines its pending requests.</p>
+            <div class="routes-body">
+              <ul class="plain-list" id="routes-list"></ul>
+              <form id="route-form" class="route-form">
+                <h3 id="route-form-title">Add a route</h3>
+                <div class="row-form">
+                  <div class="field">
+                    <label for="new-route">Route code</label>
+                    <input id="new-route" type="text" maxlength="20" required placeholder="SCCOL26" autocapitalize="characters">
+                  </div>
+                  <div class="field">
+                    <label for="new-route-day">Runs on</label>
+                    <select id="new-route-day">
+                      <option>Saturday</option>
+                      <option>Sunday</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row-form">
+                  <div class="field">
+                    <label for="route-start">Start time <span class="opt">(optional)</span></label>
+                    <input id="route-start" type="time">
+                  </div>
+                  <div class="field">
+                    <label for="route-location">Report to <span class="opt">(optional)</span></label>
+                    <input id="route-location" type="text" maxlength="120" placeholder="Where the route starts">
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="route-area">Area covered <span class="opt">(optional)</span></label>
+                  <input id="route-area" type="text" maxlength="200" placeholder="Towns or clients on the route">
+                </div>
+                <div class="field">
+                  <label for="route-notes">Notes <span class="opt">(optional)</span></label>
+                  <textarea id="route-notes" rows="3" maxlength="500" placeholder="Anything else drivers should know, like keys, coolers or pickup times"></textarea>
+                </div>
+                <div class="field">
+                  <span class="label">More details <span class="opt">(optional)</span></span>
+                  <div class="extras" id="extras-list"></div>
+                  <button type="button" class="link-btn add-extra" id="add-extra">+ Add a detail</button>
+                </div>
+                <div class="row-form">
+                  <button class="btn" type="submit" id="route-save">Add route</button>
+                  <button class="btn quiet" type="button" id="route-cancel">Clear</button>
+                </div>
+              </form>
+            </div>
           </section>
 
           <section class="panel" aria-labelledby="pass-title">
@@ -605,6 +682,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     loadedAt: null,
     selected: new Set(),
     showPast: false,
+    routeInfoOpen: false,
     sending: false,
     passcode: null,
     busy: false
@@ -657,6 +735,18 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
   function ordinal(n) {
     var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+  function fmtClock(t) {
+    if (!t) return '';
+    var p = String(t).split(':'), hh = Number(p[0]);
+    return (hh % 12 || 12) + ':' + (p[1] || '00') + ' ' + (hh >= 12 ? 'PM' : 'AM');
+  }
+  function hasDetails(r) {
+    return !!(r.start || r.location || r.area || r.notes || (r.extras && r.extras.length));
+  }
+  // Short line shown under a route on the board.
+  function routeShort(r) {
+    return [r.start ? 'Starts ' + fmtClock(r.start) : null, r.area || r.location].filter(Boolean).join(' · ');
   }
   function splitCode(code) {
     var m = /^([A-Z-]+?)(\d[\dA-Z-]*)$/.exec(code);
@@ -772,6 +862,9 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     var past = weekends.filter(function (w) { return w.dates.every(isPast); });
     var current = weekends.filter(function (w) { return !w.dates.every(isPast); });
 
+    var info = routeInfoEl();
+    if (info) nodes.push(info);
+
     var shown = state.showPast ? past.concat(current) : current;
     if (!current.length && !state.showPast) {
       nodes.push(h('p', { class: 'notice', text: 'All open weekends have passed. New dates will show up here when they are posted.' }));
@@ -826,7 +919,46 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     return h('span', { class: 'code' }, parts[0] ? h('small', { text: parts[0] }) : null, h('b', { text: parts[1] }));
   }
 
+  // A route row on the board, with its short details underneath.
   function slotEl(route, date, s, me) {
+    var el = slotCore(route, date, s, me);
+    var short = routeShort(route);
+    if (short) {
+      el.append(h('span', { class: 'slot-details', text: short }));
+      el.setAttribute('aria-label', el.getAttribute('aria-label') + ' (' + short + ')');
+    }
+    return el;
+  }
+
+  // Every route that has details, in one expandable section above the weekends.
+  function routeInfoEl() {
+    var withInfo = state.board.routes.filter(hasDetails);
+    if (!withInfo.length) return null;
+    return h('details', {
+      class: 'panel route-info', open: state.routeInfoOpen,
+      ontoggle: function (e) { state.routeInfoOpen = e.currentTarget.open; }
+    },
+      h('summary', null,
+        h('span', { class: 'ri-title', text: 'Route details' }),
+        h('span', { class: 'hint', text: 'Start times, where to report and more' })
+      ),
+      h('div', { class: 'ri-grid' }, withInfo.map(function (r) {
+        var rows = [];
+        function row(label, value) { if (value) rows.push(h('dt', { text: label }), h('dd', { text: value })); }
+        row('Starts', fmtClock(r.start));
+        row('Report to', r.location);
+        row('Area', r.area);
+        (r.extras || []).forEach(function (x) { row(x.label, x.value); });
+        row('Notes', r.notes);
+        return h('article', { class: 'ri-card' },
+          h('h3', null, codeEl(r.code), h('span', { text: r.weekday + 's' })),
+          h('dl', null, rows)
+        );
+      }))
+    );
+  }
+
+  function slotCore(route, date, s, me) {
     var status = slotStatus(s, date);
     var key = route.code + '|' + date;
     var where = route.code + ', ' + weekdayOf(date) + ' ' + shortDate(date);
@@ -1228,16 +1360,87 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
       routesList.replaceChildren(h('li', null, h('span', { class: 'meta', text: 'No routes yet. Add one below.' })));
     } else {
       routesList.replaceChildren.apply(routesList, b.routes.map(function (r) {
+        var short = routeShort(r);
+        var extraCount = (r.extras || []).length + (r.notes ? 1 : 0);
         return h('li', null,
-          h('span', null, h('span', { class: 'name', text: r.code }), ' ', h('span', { class: 'meta', text: r.weekday + 's' })),
-          confirmBtn('Retire', 'Tap to retire', function () {
-            mgr('retire_route', { p_code: r.code }, r.code + ' is off the board.');
-          })
+          h('span', { class: 'stack' },
+            h('span', { class: 'name', text: r.code + ' · ' + r.weekday + 's' }),
+            h('span', { class: 'meta', text: (short || (hasDetails(r) ? '' : 'No details yet')) +
+              (extraCount ? (short ? ' · ' : '') + '+' + extraCount + ' more' : '') })
+          ),
+          h('span', { class: 'actions-inline' },
+            h('button', { type: 'button', class: 'btn quiet small', text: 'Edit', onclick: function () { editRoute(r); } }),
+            confirmBtn('Retire', 'Tap to retire', function () {
+              mgr('retire_route', { p_code: r.code }, r.code + ' is off the board.').then(function (ok) {
+                if (ok && routeForm.editing === r.code) resetRouteForm();
+              });
+            })
+          )
         );
       }));
     }
+    if (routeForm.editing && !b.routes.some(function (r) { return r.code === routeForm.editing; })) resetRouteForm();
 
     fillAssignSelects();
+  }
+
+  // ---------- manager: route form ----------
+  var routeForm = { editing: null };
+  var extraSeq = 0;
+
+  function addExtraRow(label, value) {
+    var list = $('extras-list');
+    if (list.children.length >= 8) {
+      toast([{ cls: 'bad', text: 'A route can have up to 8 extra details.' }], 0);
+      return null;
+    }
+    var id = 'extra-' + (++extraSeq);
+    var nameInput = h('input', { type: 'text', id: id + '-label', maxlength: '40', placeholder: 'Name, like Vehicle', 'aria-label': 'Detail name' });
+    var valueInput = h('input', { type: 'text', id: id + '-value', maxlength: '200', placeholder: 'Value, like Van 12', 'aria-label': 'Detail value' });
+    nameInput.value = label || '';
+    valueInput.value = value || '';
+    var row = h('div', { class: 'extra-row' }, nameInput, valueInput,
+      h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Take out this detail', text: '×',
+        onclick: function () { row.remove(); } }));
+    list.append(row);
+    return row;
+  }
+
+  function collectExtras() {
+    return Array.from($('extras-list').children).map(function (row) {
+      var inputs = row.querySelectorAll('input');
+      return { label: inputs[0].value.trim(), value: inputs[1].value.trim() };
+    }).filter(function (x) { return x.label || x.value; });
+  }
+
+  function resetRouteForm() {
+    routeForm.editing = null;
+    $('route-form-title').textContent = 'Add a route';
+    $('new-route').value = '';
+    $('new-route').readOnly = false;
+    $('new-route-day').value = 'Saturday';
+    ['route-start', 'route-location', 'route-area', 'route-notes'].forEach(function (id) { $(id).value = ''; });
+    $('extras-list').replaceChildren();
+    $('route-save').textContent = 'Add route';
+    $('route-cancel').textContent = 'Clear';
+  }
+
+  function editRoute(r) {
+    routeForm.editing = r.code;
+    $('route-form-title').textContent = 'Edit ' + r.code;
+    $('new-route').value = r.code;
+    $('new-route').readOnly = true;
+    $('new-route-day').value = r.weekday;
+    $('route-start').value = r.start || '';
+    $('route-location').value = r.location || '';
+    $('route-area').value = r.area || '';
+    $('route-notes').value = r.notes || '';
+    $('extras-list').replaceChildren();
+    (r.extras || []).forEach(function (x) { addExtraRow(x.label, x.value); });
+    $('route-save').textContent = 'Save changes';
+    $('route-cancel').textContent = 'Cancel';
+    $('route-form').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    $('route-start').focus({ preventScroll: true });
   }
 
   function fillAssignSelects() {
@@ -1406,8 +1609,25 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     e.preventDefault();
     var code = $('new-route').value.trim().toUpperCase(), day = $('new-route-day').value;
     if (!code) return;
-    mgr('add_route', { p_code: code, p_weekday: day }, code + ' is on the board for ' + day + 's.')
-      .then(function (ok) { if (ok) $('new-route').value = ''; });
+    var extras = collectExtras();
+    var half = extras.filter(function (x) { return !x.label || !x.value; });
+    if (half.length) { toast([{ cls: 'bad', text: 'Each extra detail needs both a name and a value.' }], 0); return; }
+    mgr('save_route', {
+      p_code: code,
+      p_weekday: day,
+      p_start_time: $('route-start').value,
+      p_location: $('route-location').value,
+      p_area: $('route-area').value,
+      p_notes: $('route-notes').value,
+      p_extras: extras,
+      p_is_new: !routeForm.editing
+    }, function (r) { return r.created ? code + ' is on the board for ' + day + 's.' : code + ' is updated.'; })
+      .then(function (ok) { if (ok) resetRouteForm(); });
+  });
+  $('route-cancel').addEventListener('click', function () { resetRouteForm(); });
+  $('add-extra').addEventListener('click', function () {
+    var row = addExtraRow('', '');
+    if (row) row.querySelector('input').focus();
   });
 
   $('pass-form').addEventListener('submit', function (e) {
