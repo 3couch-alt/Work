@@ -28,7 +28,11 @@ declined or released. Tick "Email me a reminder" to also get an email the evenin
 - **Assigned** lists who has each route. **Release** puts a route back to open.
 - **Assign a route** gives a route straight to someone who asked in person or by text.
 - **Dates**: open new Saturdays and Sundays when the next month is posted, or close a date.
-- **Routes**: add a route (for example `SCCOL26`, Saturday) or retire one.
+- **Routes**: add a route (for example `SCCOL26`, Saturday) with optional details: start time,
+  where to report, area covered, notes, and up to 8 details of your own (like "Vehicle: Van 12").
+  **Edit** changes an existing route's details. A route can't move to the other day while it
+  has open requests. **Retire** takes a route off the board. Drivers see the start time and area
+  under each route, and everything else in the **Route details** section of the board.
 - **Passcode**: change the manager passcode.
 - **Email**: set the address that gets new-request alerts, paste the Gmail sender link, send a
   test email, and see the last few emails and whether they went out. Several requests sent
@@ -72,6 +76,8 @@ link stays the same.
     - Emails are handed to the Gmail script with `pg_net`.
   - `004_email_schedule.sql`: an hourly `pg_cron` job, at 7 minutes past the hour. It sends the
     evening-before reminders (5 PM Eastern on) and catches anything the page missed.
+  - `005_route_details.sql`: route details (`private.route_details`) and `save_route()`, which
+    adds a route or edits one.
 - `mailer/Code.gs`: the Gmail sender (Google Apps Script web app).
 
 The manager passcode and the email sender key are not stored in this repository.
