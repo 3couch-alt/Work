@@ -21,6 +21,12 @@ To cancel a request, tell the manager.
 declined or released. Tick "Email me a reminder" to also get an email the evening before
 (around 5 PM) each route you get. Your email never shows on the board.
 
+## Printing the schedule
+
+**Print schedule**, at the bottom of both the board and the manager page, prints one page for the
+wall. It has a grid of routes by date showing who has each route, plus Open and Closed, and the
+date and time it was printed. On a phone, the print screen also offers "Save as PDF".
+
 ## For the manager
 
 - **Waiting for approval** lists requests in the order they came in. Approving one person

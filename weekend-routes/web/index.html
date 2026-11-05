@@ -405,6 +405,40 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
 .add-extra { justify-self: start; }
 .mail-log-title { margin: 16px 0 4px; }
 
+.footer-actions { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.print-btn svg { width: 18px; height: 18px; }
+
+/* ---------- Printed schedule ----------
+   Built from the board data just before printing. The sheet uses its own
+   fixed black-on-white look so it prints the same from a phone in dark mode. */
+#print-sheet { display: none; }
+@media print {
+  @page { size: letter portrait; margin: 0.5in; }
+  :root { color-scheme: light !important; }
+  html, body { background: #fff !important; color: #000 !important; }
+  body { padding: 0 !important; }
+  body > *:not(#print-sheet) { display: none !important; }
+  #print-sheet { display: block !important; color: #000; font: 400 12pt/1.35 var(--font-body); }
+  .ps-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16pt; border-bottom: 3pt solid #000; padding-bottom: 8pt; margin-bottom: 10pt; }
+  .ps-eyebrow { margin: 0; font-size: 9.5pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  .ps-title { margin: 3pt 0 0; font: 700 30pt/1 var(--font-display); }
+  .ps-printed { margin: 0; font-size: 11pt; text-align: right; }
+  .ps-printed b { display: block; font-size: 8.5pt; letter-spacing: .1em; text-transform: uppercase; }
+  .ps-summary { margin: 0 0 16pt; font-size: 12pt; }
+  .ps-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 22pt; break-inside: avoid; page-break-inside: avoid; }
+  .ps-table caption { caption-side: top; text-align: left; padding: 0 0 6pt; font: 700 16pt/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; }
+  .ps-table th, .ps-table td { border: 1.2pt solid #000; padding: 11pt 9pt; text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+  .ps-table thead th { padding-block: 7pt; background: #e6e6e6; font-weight: 700; font-size: 12.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ps-table th.ps-route { width: 17%; }
+  .ps-route b { display: block; font: 700 17pt/1 var(--font-display); }
+  .ps-route small { display: block; margin-top: 3pt; font-size: 9pt; font-weight: 400; }
+  .ps-name { font-weight: 700; font-size: 13pt; }
+  .ps-open { font-size: 10pt; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+  td.ps-closed { background: #ececec; color: #333; font-style: italic; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ps-note { display: block; margin-top: 3pt; font-size: 9pt; font-style: italic; }
+  .ps-foot { margin: 4pt 0 0; padding-top: 8pt; border-top: 1.2pt solid #000; font-size: 10.5pt; }
+}
+
 @media (max-width: 520px) {
   .slot { gap: 12px; padding: 10px 14px; }
   .code b { font-size: 1.6rem; }
@@ -650,9 +684,15 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
 <footer>
   <div class="wrap">
     <span id="updated">Checks for changes every 20 seconds.</span>
-    <a href="#manager" id="manager-link">Manager sign-in</a>
+    <span class="footer-actions">
+      <button type="button" class="btn quiet small print-btn" id="print-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4v-7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Print schedule</button>
+      <a href="#manager" id="manager-link">Manager sign-in</a>
+    </span>
   </div>
 </footer>
+
+<!-- Filled in right before printing; only visible on paper. -->
+<section id="print-sheet" aria-hidden="true"></section>
 
 <div class="bar" id="bar" hidden>
   <div class="wrap">
@@ -1505,6 +1545,91 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     if (routes.some(function (r) { return r.code === keepRoute; })) routeSel.value = keepRoute;
   }
 
+  // ---------- printed schedule ----------
+  var fmtPrinted = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+
+  function printCell(s, date) {
+    var st = slotStatus(s, date);
+    if (st === 'taken') return h('td', null, h('span', { class: 'ps-name', text: s.approved.name }));
+    if (st === 'closed') return h('td', { class: 'ps-closed', text: 'Closed' });
+    if (st === 'past') return h('td', { class: 'ps-open', text: '—' });
+    return h('td', null,
+      h('span', { class: 'ps-open', text: 'Open' }),
+      st === 'pending'
+        ? h('span', { class: 'ps-note', text: 'Requested by ' + s.pending.map(function (r) { return r.name; }).join(', ') })
+        : null
+    );
+  }
+
+  function buildPrintSheet() {
+    var sheet = $('print-sheet');
+    var printed = h('p', { class: 'ps-printed' }, h('b', { text: 'Printed' }), fmtPrinted.format(new Date()));
+    var head = h('header', { class: 'ps-head' },
+      h('div', null,
+        h('p', { class: 'ps-eyebrow', text: 'SCCOL · Weekend coverage' }),
+        h('h1', { class: 'ps-title', text: $('title').textContent })
+      ),
+      printed
+    );
+    var b = state.board;
+    if (!b) {
+      sheet.replaceChildren(head, h('p', { text: 'The schedule had not loaded yet when this was printed.' }));
+      return;
+    }
+
+    var map = slotMap();
+    var dates = b.dates.filter(function (d) { return !isPast(d); });
+    var counts = { open: 0, pending: 0, taken: 0, closed: 0 };
+    dates.forEach(function (d) {
+      routesFor(d).forEach(function (r) { counts[slotStatus(map.get(r.code + '|' + d), d)]++; });
+    });
+    var summary = h('p', { class: 'ps-summary', text:
+      (counts.open + counts.pending) + ' open' +
+      (counts.pending ? ' (' + counts.pending + ' requested, waiting for approval)' : '') +
+      ' · ' + counts.taken + ' taken' +
+      (counts.closed ? ' · ' + counts.closed + ' closed' : '') });
+
+    // One grid per weekday: routes down the side, dates across (5 dates per table).
+    var tables = [];
+    ['Saturday', 'Sunday'].forEach(function (day) {
+      var dayDates = dates.filter(function (d) { return weekdayOf(d) === day; });
+      var dayRoutes = b.routes.filter(function (r) { return r.weekday === day; });
+      if (!dayDates.length || !dayRoutes.length) return;
+      for (var i = 0; i < dayDates.length; i += 5) {
+        var chunk = dayDates.slice(i, i + 5);
+        tables.push(h('table', { class: 'ps-table' },
+          h('caption', { text: day + 's' }),
+          h('thead', null, h('tr', null,
+            h('th', { class: 'ps-route', scope: 'col', text: 'Route' }),
+            chunk.map(function (d) { return h('th', { scope: 'col', text: shortDate(d) }); })
+          )),
+          h('tbody', null, dayRoutes.map(function (r) {
+            return h('tr', null,
+              h('th', { class: 'ps-route', scope: 'row' },
+                h('b', { text: r.code }),
+                r.start ? h('small', { text: 'Starts ' + fmtClock(r.start) }) : null
+              ),
+              chunk.map(function (d) { return printCell(map.get(r.code + '|' + d), d); })
+            );
+          }))
+        ));
+      }
+    });
+    if (!tables.length) tables.push(h('p', { text: 'No upcoming weekends are on the schedule.' }));
+
+    var foot = h('p', { class: 'ps-foot', text:
+      'To ask for an open route, go to ' + location.host + '. This schedule can change after it was printed.' });
+
+    sheet.replaceChildren.apply(sheet, [head, summary].concat(tables, [foot]));
+  }
+
+  function printSchedule() {
+    buildPrintSheet();
+    window.print();
+  }
+
   // ---------- views ----------
   function route() {
     var manager = location.hash === '#manager';
@@ -1718,6 +1843,10 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
       }
     });
   });
+
+  $('print-btn').addEventListener('click', printSchedule);
+  // Also covers printing from the browser's own menu.
+  window.addEventListener('beforeprint', buildPrintSheet);
 
   window.addEventListener('hashchange', route);
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') load(); });
