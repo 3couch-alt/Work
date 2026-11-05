@@ -1,6 +1,6 @@
 -- December 2026 weekend routes, from the Support Services email.
 
-insert into public.routes (code, weekday, sort_order) values
+insert into private.routes (code, weekday, sort_order) values
   ('SCCOL26', 'Saturday', 1),
   ('SCCOL27', 'Saturday', 2),
   ('SCCOL59', 'Saturday', 3),
@@ -10,7 +10,7 @@ insert into public.routes (code, weekday, sort_order) values
   ('SCCOL30', 'Sunday',   7)
 on conflict (code) do nothing;
 
-insert into public.open_dates (work_date) values
+insert into private.open_dates (work_date) values
   ('2026-12-05'), ('2026-12-06'),
   ('2026-12-12'), ('2026-12-13'),
   ('2026-12-19'), ('2026-12-20'),
