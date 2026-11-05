@@ -26,7 +26,11 @@ declined or released. Tick "Email me a reminder" to also get an email the evenin
 - **Waiting for approval** lists requests in the order they came in. Approving one person
   declines everyone else who asked for that route and date.
 - **Assigned** lists who has each route. **Release** puts a route back to open.
-- **Assign a route** gives a route straight to someone who asked in person or by text.
+- **Assign or close a route** gives a route straight to someone who asked in person or by text.
+  **Close for this day** marks a route as not running on one date. The board shows it as Closed
+  and nobody can request it. Closing declines anyone waiting for it. It's refused while
+  someone holds the route, and assigning someone reopens it. Closed route-days are listed
+  with a **Reopen** button.
 - **Dates**: open new Saturdays and Sundays when the next month is posted, or close a date.
 - **Routes**: add a route (for example `SCCOL26`, Saturday) with optional details: start time,
   where to report, area covered, notes, and up to 8 details of your own (like "Vehicle: Van 12").
@@ -78,6 +82,8 @@ link stays the same.
     evening-before reminders (5 PM Eastern on) and catches anything the page missed.
   - `005_route_details.sql`: route details (`private.route_details`) and `save_route()`, which
     adds a route or edits one.
+  - `006_closed_slots.sql`: closing one route on one date (`private.slot_closures`,
+    `set_slot_closed()`).
 - `mailer/Code.gs`: the Gmail sender (Google Apps Script web app).
 
 The manager passcode and the email sender key are not stored in this repository.

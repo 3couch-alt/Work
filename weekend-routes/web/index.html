@@ -196,6 +196,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-
 .pill.taken, .pill.approved { background: var(--taken-soft); color: var(--taken); }
 .pill.declined, .pill.released { background: var(--danger-soft); color: var(--danger); }
 .pill.you { background: var(--accent); color: var(--accent-ink); }
+.pill.closed { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
 
 /* ---------- My requests ---------- */
 .mine { margin-top: 18px; padding: 16px; display: grid; gap: 10px; }
@@ -270,6 +271,8 @@ button.slot[aria-pressed="true"] .check svg { display: block; }
 .who.quiet { font-weight: 500; color: var(--muted); font-size: .88rem; }
 .slot.taken .who { font-size: 1rem; }
 .slot.past { opacity: .55; }
+.slot.closed { background: var(--surface-2); }
+.slot.closed .code b { color: var(--muted); }
 .slot-details { grid-column: 2 / -1; margin-top: -4px; font-size: .86rem; color: var(--muted); overflow-wrap: anywhere; }
 
 /* ---------- Route details (board) ---------- */
@@ -449,6 +452,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
           <li><span class="pill open">Open</span></li>
           <li><span class="pill pending">Requested</span></li>
           <li><span class="pill taken">Taken</span></li>
+          <li><span class="pill closed">Closed</span></li>
           <li><span class="pill you">You</span></li>
         </ul>
       </div>
@@ -511,8 +515,8 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
 
         <div class="mgr-cols" style="margin-top:18px">
           <section class="panel" aria-labelledby="assign-title">
-            <h2 id="assign-title">Assign a route</h2>
-            <p class="sub">For someone who asked in person or by text.</p>
+            <h2 id="assign-title">Assign or close a route</h2>
+            <p class="sub">Give a route to someone who asked in person or by text. Or close a route for one day so nobody can request it.</p>
             <form id="assign-form" class="row-form">
               <div class="field">
                 <label for="assign-date">Date</label>
@@ -527,7 +531,10 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
                 <input id="assign-name" type="text" maxlength="60" required placeholder="First and last name">
               </div>
               <button class="btn" type="submit">Assign route</button>
+              <button class="btn quiet" type="button" id="close-slot">Close for this day</button>
             </form>
+            <h3 class="date-head mail-log-title">Closed</h3>
+            <ul class="plain-list" id="closed-list"></ul>
           </section>
 
           <section class="panel" aria-labelledby="dates-title">
@@ -783,6 +790,12 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
       if (r.status === 'approved') s.approved = r;
       else if (r.status === 'pending') s.pending.push(r);
     });
+    ((state.board && state.board.closed) || []).forEach(function (c) {
+      var key = c.route + '|' + c.date;
+      var s = map.get(key);
+      if (!s) { s = { approved: null, pending: [] }; map.set(key, s); }
+      s.closed = true;
+    });
     return map;
   }
   function routesFor(date) {
@@ -806,6 +819,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
 
   function slotStatus(s, date) {
     if (s && s.approved) return 'taken';
+    if (s && s.closed) return 'closed';
     if (isPast(date)) return 'past';
     if (s && s.pending.length) return 'pending';
     return 'open';
@@ -825,7 +839,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
       : months.length === 2 ? months[0] + ' & ' + months[1] + ' weekend routes'
       : 'Weekend routes';
 
-    var map = slotMap(), counts = { open: 0, pending: 0, taken: 0 };
+    var map = slotMap(), counts = { open: 0, pending: 0, taken: 0, closed: 0 };
     upcoming.forEach(function (d) {
       routesFor(d).forEach(function (r) { counts[slotStatus(map.get(r.code + '|' + d), d)]++; });
     });
@@ -889,7 +903,10 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
       : fmtShort.format(a) + ' – ' + fmtShort.format(z);
     var openCount = 0;
     w.dates.forEach(function (d) {
-      routesFor(d).forEach(function (r) { if (slotStatus(map.get(r.code + '|' + d), d) !== 'taken' && !isPast(d)) openCount++; });
+      routesFor(d).forEach(function (r) {
+        var st = slotStatus(map.get(r.code + '|' + d), d);
+        if (st === 'open' || st === 'pending') openCount++;
+      });
     });
     return h('section', { class: 'weekend', 'aria-label': 'Weekend of ' + label },
       h('div', { class: 'weekend-head' },
@@ -971,6 +988,17 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
         h('span', { class: 'state' },
           mine ? h('span', { class: 'pill you', text: 'You' }) : h('span', { class: 'pill taken', text: 'Taken' }),
           h('span', { class: 'who', text: s.approved.name })
+        )
+      );
+    }
+
+    if (status === 'closed') {
+      return h('div', { class: 'slot closed', 'aria-label': where + ': closed, not running this day' },
+        svg(ICON_LOCK, 'lock'),
+        codeEl(route.code),
+        h('span', { class: 'state' },
+          h('span', { class: 'pill closed', text: 'Closed' }),
+          h('span', { class: 'who quiet', text: 'Not running this day' })
         )
       );
     }
@@ -1338,6 +1366,24 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
       assignedBox.replaceChildren.apply(assignedBox, nodes);
     }
 
+    // Closed route-days
+    var closedBox = $('closed-list');
+    var closed = (b.closed || []).filter(function (c) { return !isPast(c.date); }).sort(bySlot);
+    if (!closed.length) {
+      closedBox.replaceChildren(h('li', null, h('span', { class: 'meta', text: 'No routes closed.' })));
+    } else {
+      closedBox.replaceChildren.apply(closedBox, closed.map(function (c) {
+        return h('li', null,
+          h('span', { class: 'name', text: c.route + ' · ' + weekdayOf(c.date) + ' ' + shortDate(c.date) }),
+          h('button', { type: 'button', class: 'btn quiet small', text: 'Reopen', onclick: function (e) {
+            e.currentTarget.disabled = true;
+            mgr('set_slot_closed', { p_route: c.route, p_date: c.date, p_closed: false },
+              c.route + ' on ' + dowDate(c.date) + ' is open for requests again.');
+          } })
+        );
+      }));
+    }
+
     // Dates
     var datesList = $('dates-list');
     var upcomingDates = b.dates.filter(function (d) { return !isPast(d); });
@@ -1487,7 +1533,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
         var s = map.get(k);
         var asked = me && s && s.pending.some(function (r) { return norm(r.name) === me; });
         var exists = state.board.dates.indexOf(p[1]) !== -1 && state.board.routes.some(function (r) { return r.code === p[0]; });
-        if (!exists || st === 'taken' || st === 'past' || asked) state.selected.delete(k);
+        if (!exists || st === 'taken' || st === 'closed' || st === 'past' || asked) state.selected.delete(k);
       });
       renderBoard();
     }
@@ -1595,6 +1641,36 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     mgr('assign_route', { p_route: code, p_date: date, p_name: name }, function () {
       return code + ' on ' + dowDate(date) + ' is assigned to ' + name + '.';
     }).then(function (ok) { if (ok) $('assign-name').value = ''; });
+  });
+
+  // Close the chosen route on the chosen day. If people have asked for it,
+  // the first tap warns that their requests will be declined.
+  var closeArmTimer = null;
+  function disarmClose() {
+    clearTimeout(closeArmTimer);
+    $('close-slot').classList.remove('armed');
+    $('close-slot').textContent = 'Close for this day';
+  }
+  $('assign-date').addEventListener('change', disarmClose);
+  $('assign-route').addEventListener('change', disarmClose);
+  $('close-slot').addEventListener('click', function () {
+    var date = $('assign-date').value, code = $('assign-route').value, btn = $('close-slot');
+    if (!date || !code) return;
+    var s = slotMap().get(code + '|' + date);
+    if (s && s.closed) { toast([{ cls: 'bad', text: code + ' on ' + dowDate(date) + ' is already closed.' }], 0); return; }
+    var waiting = s ? s.pending.length : 0;
+    if (waiting && !btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = 'Tap again: declines ' + waiting + ' request' + (waiting === 1 ? '' : 's');
+      clearTimeout(closeArmTimer);
+      closeArmTimer = setTimeout(disarmClose, 5000);
+      return;
+    }
+    disarmClose();
+    mgr('set_slot_closed', { p_route: code, p_date: date, p_closed: true }, function (r) {
+      return code + ' on ' + dowDate(date) + ' is closed.' +
+        (r.declined ? ' Declined ' + r.declined + ' pending request' + (r.declined === 1 ? '' : 's') + '.' : '');
+    });
   });
 
   $('date-form').addEventListener('submit', function (e) {
