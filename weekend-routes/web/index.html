@@ -133,12 +133,16 @@ h1 {
   margin-top: -26px;
   position: relative;
   padding: 16px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 28px;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  gap: 14px;
 }
+.you-fields { display: flex; flex-wrap: wrap; gap: 14px 16px; }
+.you-fields .field { flex: 1 1 240px; }
+.you-foot { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+.checkline { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; cursor: pointer; }
+.checkline input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+.opt { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.reminder-note { color: var(--muted); font-size: .85rem; }
 .field { display: grid; gap: 6px; min-width: 0; }
 .field label, .label {
   font-size: .78rem;
@@ -147,8 +151,7 @@ h1 {
   text-transform: uppercase;
   color: var(--muted);
 }
-.you .field { flex: 1 1 260px; }
-input[type="text"], input[type="password"], input[type="date"], select {
+input[type="text"], input[type="email"], input[type="url"], input[type="password"], input[type="date"], select {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
@@ -347,6 +350,11 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
 .date-head:first-child { margin-top: 0; }
 .nothing { color: var(--muted); margin: 0; }
 .mgr-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 18px; }
+.mail-status { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-weight: 500; overflow-wrap: anywhere; }
+.mail-status.good { background: var(--open-soft); color: var(--open); }
+.mail-status.warn { background: var(--pending-soft); color: var(--pending); }
+.mail-what { display: grid; min-width: 0; }
+.mail-log-title { margin: 16px 0 4px; }
 
 @media (max-width: 520px) {
   .slot { gap: 12px; padding: 10px 14px; }
@@ -376,18 +384,28 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
 <!-- ======================= Board view ======================= -->
 <main id="board-view">
   <div class="wrap">
-    <section class="panel you" aria-label="Your name">
-      <div class="field">
-        <label for="your-name">Your name</label>
-        <input id="your-name" type="text" autocomplete="name" maxlength="60" placeholder="First and last name">
-        <p class="hint" id="name-hint">Goes on your requests. This phone remembers it.</p>
+    <section class="panel you" aria-label="Your details">
+      <div class="you-fields">
+        <div class="field">
+          <label for="your-name">Your name</label>
+          <input id="your-name" type="text" autocomplete="name" maxlength="60" placeholder="First and last name">
+          <p class="hint" id="name-hint">Goes on your requests. This phone remembers it.</p>
+        </div>
+        <div class="field">
+          <label for="your-email">Email <span class="opt">(optional)</span></label>
+          <input id="your-email" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="you@example.com">
+          <p class="hint" id="email-hint">Get an email when a request is approved or declined. It never shows on the board.</p>
+        </div>
       </div>
-      <ul class="legend" aria-label="Legend">
-        <li><span class="pill open">Open</span></li>
-        <li><span class="pill pending">Requested</span></li>
-        <li><span class="pill taken">Taken</span></li>
-        <li><span class="pill you">You</span></li>
-      </ul>
+      <div class="you-foot">
+        <label class="checkline" for="remind-me"><input id="remind-me" type="checkbox" checked> Email me a reminder the evening before each route I get</label>
+        <ul class="legend" aria-label="Legend">
+          <li><span class="pill open">Open</span></li>
+          <li><span class="pill pending">Requested</span></li>
+          <li><span class="pill taken">Taken</span></li>
+          <li><span class="pill you">You</span></li>
+        </ul>
+      </div>
     </section>
 
     <section class="panel mine" id="mine" hidden aria-labelledby="mine-title">
@@ -513,6 +531,31 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
               </div>
               <button class="btn" type="submit">Change passcode</button>
             </form>
+          </section>
+
+          <section class="panel" aria-labelledby="mail-title">
+            <h2 id="mail-title">Email</h2>
+            <p class="sub">New requests are emailed to the alert address. Drivers who add their email get approval notices and evening-before reminders.</p>
+            <p class="mail-status" id="mail-status">Checking email setup…</p>
+            <form id="alert-form" class="row-form">
+              <div class="field">
+                <label for="alert-email">Send new-request alerts to</label>
+                <input id="alert-email" type="email" inputmode="email" maxlength="254" placeholder="supervisor@example.com">
+              </div>
+              <button class="btn" type="submit">Save</button>
+            </form>
+            <form id="mailer-form" class="row-form" style="margin-top:12px">
+              <div class="field">
+                <label for="mailer-url">Gmail sender link</label>
+                <input id="mailer-url" type="url" placeholder="https://script.google.com/macros/s/…/exec">
+              </div>
+              <button class="btn quiet" type="submit">Save link</button>
+            </form>
+            <div class="row-form" style="margin-top:12px">
+              <button class="btn quiet" type="button" id="test-mail">Send a test email</button>
+            </div>
+            <h3 class="date-head mail-log-title">Recent emails</h3>
+            <ul class="plain-list" id="mail-log"></ul>
           </section>
         </div>
       </div>
@@ -849,9 +892,11 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     if (!mine.length) { box.hidden = true; return; }
     mine.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.route < b.route ? -1 : 1; });
     $('mine-list').replaceChildren.apply($('mine-list'), mine.map(function (r) {
+      var reminderOn = r.remind && (r.status === 'pending' || r.status === 'approved') && !isPast(r.date);
       return h('li', null,
         h('span', { class: 'what', text: r.route }),
         h('span', { class: 'when', text: weekdayOf(r.date) + ', ' + shortDate(r.date) }),
+        reminderOn ? h('span', { class: 'reminder-note', text: 'Email reminder on' }) : null,
         h('span', { class: 'pill ' + r.status, text: STATUS_LABEL[r.status] || r.status })
       );
     }));
@@ -883,6 +928,17 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     hint.textContent = show ? 'Enter your name before sending requests.' : 'Goes on your requests. This phone remembers it.';
   }
 
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function emailProblem(show) {
+    var input = $('your-email'), hint = $('email-hint');
+    input.classList.toggle('invalid', !!show);
+    hint.classList.toggle('error', !!show);
+    hint.textContent = show ? 'Check your email address, or leave it blank.' : 'Get an email when a request is approved or declined. It never shows on the board.';
+  }
+
+  // Ask the server to send any emails that are now due. Safe to call any time.
+  function flushEmail() { rpc('flush_notifications').catch(function () {}); }
+
   function sendRequests() {
     var name = $('your-name').value.trim().replace(/\s+/g, ' ');
     if (name.length < 2) {
@@ -891,7 +947,17 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
       $('your-name').scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
+    var email = $('your-email').value.trim();
+    if (email && !EMAIL_RE.test(email)) {
+      emailProblem(true);
+      $('your-email').focus();
+      $('your-email').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    var remind = $('remind-me').checked;
     storage.set('localStorage', 'wr-name', name);
+    if (email) storage.set('localStorage', 'wr-email', email); else storage.del('localStorage', 'wr-email');
+    storage.set('localStorage', 'wr-remind', remind ? '1' : '0');
     var items = selectedItems();
     state.sending = true;
     renderBar(); renderBoard();
@@ -899,7 +965,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     var chain = Promise.resolve();
     items.forEach(function (it) {
       chain = chain.then(function () {
-        return rpc('submit_request', { p_route: it.route, p_date: it.date, p_name: name }).then(function (r) {
+        return rpc('request_route', { p_route: it.route, p_date: it.date, p_name: name, p_email: email, p_remind: remind }).then(function (r) {
           results.push({ it: it, ok: !!r.ok, error: r.error });
         }, function (e) {
           results.push({ it: it, ok: false, error: e.message });
@@ -912,7 +978,11 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
       var good = results.filter(function (r) { return r.ok; });
       var bad = results.filter(function (r) { return !r.ok; });
       var lines = [];
-      if (good.length) lines.push({ cls: 'good', text: 'Sent ' + good.length + ' request' + (good.length === 1 ? '' : 's') + '. Your manager will approve or decline ' + (good.length === 1 ? 'it' : 'them') + '.' });
+      if (good.length) {
+        flushEmail();
+        lines.push({ cls: 'good', text: 'Sent ' + good.length + ' request' + (good.length === 1 ? '' : 's') + '. Your manager will approve or decline ' + (good.length === 1 ? 'it' : 'them') + '.' +
+          (email ? ' You’ll get an email at ' + email + ' when they do.' : '') });
+      }
       bad.forEach(function (r) { lines.push({ cls: 'bad', text: r.it.route + ' ' + dowDate(r.it.date) + ': ' + (r.error || 'Not sent.') }); });
       toast(lines, bad.length ? 0 : 7000);
       return load();
@@ -935,6 +1005,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
 
   function signOut(message) {
     state.passcode = null;
+    mail.data = null;
     storage.del('sessionStorage', 'wr-pass');
     $('passcode').value = '';
     $('signin-hint').textContent = message || '';
@@ -948,6 +1019,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     var payload = Object.assign({ p_passcode: state.passcode }, args);
     return rpc(fn, payload).then(function (r) {
       if (r.ok) {
+        flushEmail();
         toast([{ cls: 'good', text: typeof okText === 'function' ? okText(r) : okText }], 6000);
         return true;
       }
@@ -981,10 +1053,79 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
     return btn;
   }
 
+  // ---------- manager: email ----------
+  var mail = { data: null, loading: false };
+  var MAIL_KIND = { alert: 'New-request alert', decision: 'Approval notice', reminder: 'Reminder', test: 'Test email' };
+
+  function mailResult(m) {
+    var c = m.content || '';
+    if (m.error_msg) return { cls: 'declined', text: 'Failed: ' + m.error_msg };
+    if (m.timed_out) return { cls: 'declined', text: 'Timed out' };
+    if (m.status_code === null || m.status_code === undefined) {
+      var age = Date.now() - new Date(m.queued_at).getTime();
+      return age < 5 * 60 * 1000 ? { cls: 'pending', text: 'Sending…' } : { cls: 'taken', text: 'Handed off' };
+    }
+    if (/"ok"\s*:\s*false/.test(c)) {
+      var why = /"error"\s*:\s*"([^"]*)"/.exec(c);
+      return { cls: 'declined', text: 'Not sent' + (why ? ': ' + why[1] : '') };
+    }
+    if (/Exception:|TypeError:|Script function not found|Authorization is required/i.test(c)) {
+      return { cls: 'declined', text: 'Apps Script error' };
+    }
+    if (m.status_code >= 200 && m.status_code < 400) return { cls: 'open', text: 'Sent' };
+    return { cls: 'declined', text: 'Failed (error ' + m.status_code + ')' };
+  }
+
+  function loadMail() {
+    if (!state.passcode || mail.loading) return Promise.resolve();
+    mail.loading = true;
+    return rpc('manager_mail_status', { p_passcode: state.passcode }).then(function (r) {
+      if (r.ok) { mail.data = r; renderMail(); }
+      else if (isWrongPass(r.error)) signOut('Your passcode no longer works. Sign in again.');
+    }, function () {}).then(function () { mail.loading = false; });
+  }
+
+  function renderMail() {
+    var d = mail.data;
+    if (!d) return;
+    var status = $('mail-status'), alertInput = $('alert-email');
+    if (document.activeElement !== alertInput && !alertInput.dataset.dirty) alertInput.value = d.alert_email || '';
+    if (!d.link_saved) {
+      status.className = 'mail-status warn';
+      status.textContent = 'Email is off. Paste the Gmail sender link below to turn it on.';
+    } else if (!d.key_saved) {
+      status.className = 'mail-status warn';
+      status.textContent = 'The sender key is missing, so no email can go out. Ask whoever set up the site to add it.';
+    } else if (!d.alert_email) {
+      status.className = 'mail-status warn';
+      status.textContent = 'Email is on for drivers. Add an alert address to hear about new requests.';
+    } else {
+      status.className = 'mail-status good';
+      status.textContent = 'Email is on. New-request alerts go to ' + d.alert_email + '.';
+    }
+    $('mailer-url').placeholder = d.link_saved ? 'Link saved' :'https://script.google.com/macros/s/…/exec';
+    var log = $('mail-log');
+    if (!d.recent.length) {
+      log.replaceChildren(h('li', null, h('span', { class: 'meta', text: 'No emails sent yet.' })));
+    } else {
+      log.replaceChildren.apply(log, d.recent.map(function (m) {
+        var res = mailResult(m);
+        return h('li', null,
+          h('span', { class: 'mail-what' },
+            h('span', { class: 'name', text: (MAIL_KIND[m.kind] || m.kind) + ' to ' + m.to_email }),
+            h('span', { class: 'meta', text: fmtStamp.format(new Date(m.queued_at)) })
+          ),
+          h('span', { class: 'pill ' + res.cls, text: res.text })
+        );
+      }));
+    }
+  }
+
   function renderManager() {
     var signedIn = !!state.passcode;
     $('signin-panel').hidden = signedIn;
     $('mgr-tools').hidden = !signedIn;
+    if (signedIn && !mail.data) loadMail();
     if (!signedIn || !state.board) return;
 
     var b = state.board;
@@ -1173,6 +1314,18 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
   // ---------- events ----------
   var savedName = storage.get('localStorage', 'wr-name');
   if (savedName) $('your-name').value = savedName;
+  var savedEmail = storage.get('localStorage', 'wr-email');
+  if (savedEmail) $('your-email').value = savedEmail;
+  if (storage.get('localStorage', 'wr-remind') === '0') $('remind-me').checked = false;
+  $('your-email').addEventListener('input', function () {
+    emailProblem(false);
+    var v = $('your-email').value.trim();
+    if (!v) storage.del('localStorage', 'wr-email');
+    else if (EMAIL_RE.test(v)) storage.set('localStorage', 'wr-email', v);
+  });
+  $('remind-me').addEventListener('change', function () {
+    storage.set('localStorage', 'wr-remind', $('remind-me').checked ? '1' : '0');
+  });
   var nameTimer = null;
   $('your-name').addEventListener('input', function () {
     nameProblem(false);
@@ -1210,6 +1363,26 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: s
   });
 
   $('signout').addEventListener('click', function () { signOut(); });
+
+  $('alert-email').addEventListener('input', function () { $('alert-email').dataset.dirty = '1'; });
+  $('alert-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = $('alert-email').value.trim();
+    if (v && !EMAIL_RE.test(v)) { toast([{ cls: 'bad', text: 'Check the alert email address.' }], 0); return; }
+    mgr('set_alert_email', { p_email: v }, v ? 'New-request alerts will go to ' + v + '.' : 'New-request alerts are off.')
+      .then(function (ok) { if (ok) delete $('alert-email').dataset.dirty; return loadMail(); });
+  });
+  $('mailer-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = $('mailer-url').value.trim();
+    if (!v) return;
+    mgr('set_mailer_link', { p_url: v }, 'Gmail sender link saved. Send a test email to check it.')
+      .then(function (ok) { if (ok) $('mailer-url').value = ''; return loadMail(); });
+  });
+  $('test-mail').addEventListener('click', function () {
+    mgr('send_test_email', {}, function (r) { return 'Test email sent to ' + r.to + '. It should arrive within a minute.'; })
+      .then(function () { loadMail(); setTimeout(loadMail, 6000); setTimeout(loadMail, 20000); });
+  });
 
   $('assign-date').addEventListener('change', function () { fillAssignSelects(); });
   $('assign-form').addEventListener('submit', function (e) {
