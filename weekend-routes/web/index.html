@@ -1,0 +1,1876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SCCOL Weekend Routes</title>
+<meta name="description" content="Request weekend routes and see which ones are open or taken.">
+<meta name="theme-color" content="#1a2188">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a2188'/%3E%3Cpath d='M18 46V18h28' fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='44' cy='44' r='7' fill='%234cd5f7'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root {
+  /* Layout: a dispatch board. One section per weekend; Saturday and Sunday sit
+     side by side and stack on phones. A send bar pins to the bottom while
+     routes are selected. Manager tools live on their own #manager view. */
+  /* Colors follow Labcorp's palette: deep blue #1A2188, royal blue #3A5CE9,
+     and the cyan-to-blue logo gradient #4CD5F7 > #2998E3. Status colors
+     (open green, requested amber) stay separate so they read at a glance. */
+  --bg: #eef2fa;
+  --surface: #ffffff;
+  --surface-2: #f4f6fd;
+  --ink: #151a3f;
+  --muted: #565e82;
+  --line: #d5dbee;
+  --band: #1a2188;
+  --band-ink: #ffffff;
+  --band-muted: #c3cbf5;
+  --brand-cyan: #4cd5f7;
+  --brand-sky: #2998e3;
+  --brand-royal: #3a5ce9;
+  --accent: #3a5ce9;
+  --accent-ink: #ffffff;
+  --accent-soft: #e5eafd;
+  --open: #12764a;
+  --open-soft: #e0f2e8;
+  --pending: #8a5300;
+  --pending-soft: #fbeed3;
+  --taken: #343b6b;
+  --taken-soft: #e4e7f5;
+  --danger: #b42318;
+  --danger-soft: #fde6e3;
+  --shadow: 0 1px 2px rgba(26, 33, 136, .06), 0 6px 20px rgba(26, 33, 136, .08);
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "Barlow", "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+  --radius: 12px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0d26;
+    --surface: #121739;
+    --surface-2: #181f48;
+    --ink: #e9ecfb;
+    --muted: #9ea6cc;
+    --line: #283066;
+    --band: #10156a;
+    --band-ink: #ffffff;
+    --band-muted: #aeb8ee;
+    --accent: #7f97ff;
+    --accent-ink: #0a0f33;
+    --accent-soft: #1f2a6b;
+    --open: #5fd398;
+    --open-soft: #11301f;
+    --pending: #f1b45c;
+    --pending-soft: #382912;
+    --taken: #c6cbe8;
+    --taken-soft: #232b5c;
+    --danger: #ff8f85;
+    --danger-soft: #3b1917;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.5 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+body.has-bar { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* ---------- Header band ---------- */
+.band {
+  background: var(--band);
+  color: var(--band-ink);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+/* Thin brand stripe across the top, in the logo's cyan-to-blue gradient. */
+.band::before {
+  content: "";
+  display: block;
+  height: 5px;
+  background: linear-gradient(90deg, var(--brand-cyan), var(--brand-sky) 50%, var(--brand-royal));
+}
+.band .wrap { padding-block: 28px 44px; display: grid; gap: 18px; }
+.eyebrow {
+  margin: 0;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--band-muted);
+}
+h1 {
+  margin: 4px 0 0;
+  font: 700 clamp(2.1rem, 7vw, 3.2rem)/1 var(--font-display);
+  letter-spacing: .005em;
+  text-wrap: balance;
+}
+.lede { margin: 6px 0 0; max-width: 60ch; color: var(--band-muted); }
+.stats { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 0; padding: 0; list-style: none; }
+.stats li { display: flex; align-items: baseline; gap: 8px; }
+.stats b { font: 700 1.9rem/1 var(--font-display); color: var(--band-ink); }
+.stats span { color: var(--band-muted); font-size: .95rem; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; align-self: center; }
+.dot.open { background: #4cc98a; }
+.dot.pending { background: #f0ac4b; }
+.dot.taken { background: #aab4e8; }
+
+/* ---------- Name panel ---------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.you {
+  margin-top: -26px;
+  position: relative;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+.you-fields { display: flex; flex-wrap: wrap; gap: 14px 16px; }
+.you-fields .field { flex: 1 1 240px; }
+.you-foot { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+.checkline { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; cursor: pointer; }
+.checkline input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+.opt { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.reminder-note { color: var(--muted); font-size: .85rem; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field label, .label {
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+input[type="text"], input[type="email"], input[type="url"], input[type="password"], input[type="date"], input[type="time"], select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 1.05rem;
+}
+textarea {
+  width: 100%;
+  min-height: 84px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 1rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+input[readonly] { background: var(--surface-2); color: var(--muted); }
+input.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+.hint { margin: 0; font-size: .88rem; color: var(--muted); }
+.hint.error { color: var(--danger); font-weight: 500; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+/* ---------- Pills ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pill.open { background: var(--open-soft); color: var(--open); }
+.pill.pending { background: var(--pending-soft); color: var(--pending); }
+.pill.taken, .pill.approved { background: var(--taken-soft); color: var(--taken); }
+.pill.declined, .pill.released { background: var(--danger-soft); color: var(--danger); }
+.pill.you { background: var(--accent); color: var(--accent-ink); }
+.pill.closed { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* ---------- My requests ---------- */
+.mine { margin-top: 18px; padding: 16px; display: grid; gap: 10px; }
+.mine h2 { margin: 0; font: 600 1.35rem/1.1 var(--font-display); letter-spacing: .01em; }
+.mine ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mine li {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  padding: 8px 0; border-top: 1px solid var(--line);
+}
+.mine li:first-child { border-top: 0; }
+.mine .what { font-weight: 600; }
+.mine .when { color: var(--muted); }
+.mine .pill { margin-left: auto; }
+
+/* ---------- Board ---------- */
+.notice {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  color: var(--muted);
+}
+.notice.error { border-style: solid; border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+.weekend { margin-top: 30px; }
+.weekend-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
+.weekend-head h2 { margin: 0; font: 700 1.6rem/1 var(--font-display); letter-spacing: .01em; }
+.weekend-head span { color: var(--muted); font-size: .95rem; }
+.days { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+.day { overflow: hidden; min-width: 0; }
+.day-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+}
+.day-head h3 { margin: 0; font: 700 1.15rem/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; }
+.day-head span { color: var(--muted); font-weight: 500; }
+.slots { list-style: none; margin: 0; padding: 0; }
+.slots li + li { border-top: 1px solid var(--line); }
+.slot {
+  width: 100%;
+  min-height: 60px;
+  display: grid;
+  grid-template-columns: 26px auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+button.slot { cursor: pointer; }
+button.slot:hover { background: var(--surface-2); }
+button.slot[aria-pressed="true"] { background: var(--accent-soft); }
+button.slot:disabled { cursor: progress; }
+.check {
+  width: 24px; height: 24px; border-radius: 7px;
+  border: 2px solid var(--line);
+  display: grid; place-items: center;
+  background: var(--surface);
+}
+button.slot:hover .check { border-color: var(--accent); }
+button.slot[aria-pressed="true"] .check { background: var(--accent); border-color: var(--accent); }
+.check svg { width: 15px; height: 15px; display: none; }
+button.slot[aria-pressed="true"] .check svg { display: block; }
+.lock { color: var(--muted); display: grid; place-items: center; }
+.lock svg { width: 18px; height: 18px; }
+.code { font-family: var(--font-display); font-weight: 600; line-height: 1; white-space: nowrap; }
+.code small { font-size: .9rem; letter-spacing: .08em; color: var(--muted); margin-right: 1px; }
+.code b { font-size: 1.75rem; font-weight: 700; }
+.state { justify-self: end; text-align: right; display: grid; gap: 3px; justify-items: end; min-width: 0; }
+.who { font-size: .95rem; font-weight: 600; overflow-wrap: anywhere; }
+.who.quiet { font-weight: 500; color: var(--muted); font-size: .88rem; }
+.slot.taken .who { font-size: 1rem; }
+.slot.past { opacity: .55; }
+.slot.closed { background: var(--surface-2); }
+.slot.closed .code b { color: var(--muted); }
+.slot-details { grid-column: 2 / -1; margin-top: -4px; font-size: .86rem; color: var(--muted); overflow-wrap: anywhere; }
+
+/* ---------- Route details (board) ---------- */
+.route-info { margin-top: 18px; }
+.route-info > summary {
+  list-style: none; cursor: pointer; padding: 14px 16px;
+  display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between;
+}
+.route-info > summary::-webkit-details-marker { display: none; }
+.ri-title { font: 700 1.3rem/1.1 var(--font-display); letter-spacing: .01em; }
+.ri-title::before { content: "\25B8"; display: inline-block; margin-right: 8px; color: var(--muted); transition: transform .15s; }
+.route-info[open] .ri-title::before { transform: rotate(90deg); }
+.ri-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 0 16px 16px; }
+.ri-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; background: var(--surface-2); }
+.ri-card h3 { margin: 0 0 10px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ri-card h3 .code b { font-size: 1.5rem; }
+.ri-card h3 > span:last-child { color: var(--muted); font-weight: 500; font-size: .9rem; }
+.ri-card dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 12px; }
+.ri-card dt { font-size: .72rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.ri-card dd { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+.empty-day { padding: 16px; color: var(--muted); margin: 0; }
+.more { margin-top: 26px; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 10px 18px;
+  border-radius: 9px; border: 1.5px solid transparent;
+  background: var(--accent); color: var(--accent-ink);
+  font-weight: 600; font-size: 1rem; cursor: pointer; white-space: nowrap;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:disabled { opacity: .6; cursor: progress; filter: none; }
+.btn.quiet { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn.quiet:hover { background: var(--surface-2); filter: none; }
+.btn.small { min-height: 38px; padding: 6px 12px; font-size: .92rem; }
+.btn.good { background: var(--open); color: var(--surface); }
+.btn.bad { background: transparent; color: var(--danger); border-color: var(--danger); }
+.btn.armed { background: var(--danger); color: var(--surface); border-color: var(--danger); }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Send bar ---------- */
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, .12);
+  padding-top: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.bar .wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+.bar-text { min-width: 0; flex: 1 1 200px; }
+.bar-text b { font: 700 1.35rem/1 var(--font-display); }
+.bar-text p { margin: 2px 0 0; color: var(--muted); font-size: .88rem; overflow-wrap: anywhere; }
+.bar-actions { display: flex; gap: 10px; flex: 0 0 auto; }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; z-index: 30;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  margin: 0 auto; max-width: 520px;
+  background: var(--ink); color: var(--bg);
+  border-radius: 12px; padding: 14px 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start;
+}
+body.has-bar .toast { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+.toast ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.toast li { overflow-wrap: anywhere; }
+.toast li.bad::before { content: "✕  "; color: #ff8f85; font-weight: 700; }
+.toast li.good::before { content: "✓  "; color: #5fd398; font-weight: 700; }
+.toast button { background: none; border: 0; color: inherit; font-weight: 600; cursor: pointer; padding: 2px 4px; }
+
+/* ---------- Footer ---------- */
+footer { margin-top: 40px; padding-block: 22px 32px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+
+/* ---------- Manager ---------- */
+.mgr { display: grid; gap: 18px; margin-top: -26px; position: relative; }
+.mgr .panel { padding: 18px; min-width: 0; }
+.mgr h2 { margin: 0 0 4px; font: 700 1.45rem/1.1 var(--font-display); letter-spacing: .01em; }
+.mgr h2 .count { color: var(--muted); font-weight: 600; }
+.mgr .sub { margin: 0 0 14px; color: var(--muted); font-size: .92rem; }
+.mgr-cols { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.signin { max-width: 440px; display: grid; gap: 12px; }
+.row-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.row-form .field { flex: 1 1 160px; }
+.group { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.group + .group { margin-top: 12px; }
+.group-head {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline;
+  padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line);
+}
+.group-head b { font: 700 1.2rem/1 var(--font-display); letter-spacing: .02em; }
+.group-head span { color: var(--muted); font-size: .88rem; }
+.req { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; }
+.req + .req { border-top: 1px solid var(--line); }
+.req .person { flex: 1 1 160px; min-width: 0; }
+.req .person b { display: block; overflow-wrap: anywhere; }
+.req .person span { color: var(--muted); font-size: .85rem; }
+.req .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.plain-list { list-style: none; margin: 0; padding: 0; }
+.plain-list li { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); }
+.plain-list li:first-child { border-top: 0; }
+.plain-list .name { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.plain-list .meta { color: var(--muted); font-size: .9rem; }
+.date-head { margin: 14px 0 4px; font: 700 1rem/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.date-head:first-child { margin-top: 0; }
+.nothing { color: var(--muted); margin: 0; }
+.mgr-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 18px; }
+.mail-status { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-weight: 500; overflow-wrap: anywhere; }
+.mail-status.good { background: var(--open-soft); color: var(--open); }
+.mail-status.warn { background: var(--pending-soft); color: var(--pending); }
+.mail-what, .stack { display: grid; min-width: 0; }
+.actions-inline { display: flex; gap: 8px; flex-wrap: wrap; }
+.routes-panel { grid-column: 1 / -1; }
+.routes-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px 28px; align-items: start; }
+.route-form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); min-width: 0; }
+.route-form h3 { margin: 0; font: 700 1.2rem/1.1 var(--font-display); letter-spacing: .02em; }
+.extras { display: grid; gap: 8px; }
+.extras:empty { display: none; }
+.extra-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto; gap: 8px; align-items: center; }
+.icon-btn {
+  width: 44px; height: 46px; border-radius: 8px; border: 1.5px solid var(--line);
+  background: var(--surface); color: var(--muted); cursor: pointer; font-size: 1.3rem; line-height: 1;
+}
+.icon-btn:hover { color: var(--danger); border-color: var(--danger); }
+.add-extra { justify-self: start; }
+.mail-log-title { margin: 16px 0 4px; }
+
+.footer-actions { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.print-btn svg { width: 18px; height: 18px; }
+
+/* ---------- Printed schedule ----------
+   Built from the board data just before printing. The sheet uses its own
+   fixed black-on-white look so it prints the same from a phone in dark mode. */
+#print-sheet { display: none; }
+@media print {
+  @page { size: letter portrait; margin: 0.5in; }
+  :root { color-scheme: light !important; }
+  html, body { background: #fff !important; color: #000 !important; }
+  body { padding: 0 !important; }
+  body > *:not(#print-sheet) { display: none !important; }
+  #print-sheet { display: block !important; color: #000; font: 400 12pt/1.35 var(--font-body); }
+  .ps-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16pt; border-bottom: 3pt solid #000; padding-bottom: 8pt; margin-bottom: 10pt; }
+  .ps-eyebrow { margin: 0; font-size: 9.5pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+  .ps-title { margin: 3pt 0 0; font: 700 30pt/1 var(--font-display); }
+  .ps-printed { margin: 0; font-size: 11pt; text-align: right; }
+  .ps-printed b { display: block; font-size: 8.5pt; letter-spacing: .1em; text-transform: uppercase; }
+  .ps-summary { margin: 0 0 16pt; font-size: 12pt; }
+  .ps-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 22pt; break-inside: avoid; page-break-inside: avoid; }
+  .ps-table caption { caption-side: top; text-align: left; padding: 0 0 6pt; font: 700 16pt/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; }
+  .ps-table th, .ps-table td { border: 1.2pt solid #000; padding: 11pt 9pt; text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+  .ps-table thead th { padding-block: 7pt; background: #e6e6e6; font-weight: 700; font-size: 12.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ps-table th.ps-route { width: 17%; }
+  .ps-route b { display: block; font: 700 17pt/1 var(--font-display); }
+  .ps-route small { display: block; margin-top: 3pt; font-size: 9pt; font-weight: 400; }
+  .ps-name { font-weight: 700; font-size: 13pt; }
+  .ps-open { font-size: 10pt; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+  td.ps-closed { background: #ececec; color: #333; font-style: italic; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ps-note { display: block; margin-top: 3pt; font-size: 9pt; font-style: italic; }
+  .ps-foot { margin: 4pt 0 0; padding-top: 8pt; border-top: 1.2pt solid #000; font-size: 10.5pt; }
+}
+
+@media (max-width: 520px) {
+  .slot { gap: 12px; padding: 10px 14px; }
+  .code b { font-size: 1.6rem; }
+  .bar-actions { width: 100%; }
+  .bar-actions .btn { flex: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: rise .18s ease-out; }
+  @keyframes rise { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow" id="eyebrow">SCCOL · Weekend coverage</p>
+      <h1 id="title">Weekend routes</h1>
+      <p class="lede" id="lede">Tap the routes and dates you want to work, then send your request. Your manager approves each one, and approved routes show the driver's name.</p>
+    </div>
+    <ul class="stats" id="stats" aria-label="Route-days this period"></ul>
+  </div>
+</header>
+
+<!-- ======================= Board view ======================= -->
+<main id="board-view">
+  <div class="wrap">
+    <section class="panel you" aria-label="Your details">
+      <div class="you-fields">
+        <div class="field">
+          <label for="your-name">Your name</label>
+          <input id="your-name" type="text" autocomplete="name" maxlength="60" placeholder="First and last name">
+          <p class="hint" id="name-hint">Goes on your requests. This phone remembers it.</p>
+        </div>
+        <div class="field">
+          <label for="your-email">Email <span class="opt">(optional)</span></label>
+          <input id="your-email" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="you@example.com">
+          <p class="hint" id="email-hint">Get an email when a request is approved or declined. It never shows on the board.</p>
+        </div>
+      </div>
+      <div class="you-foot">
+        <label class="checkline" for="remind-me"><input id="remind-me" type="checkbox" checked> Email me a reminder the evening before each route I get</label>
+        <ul class="legend" aria-label="Legend">
+          <li><span class="pill open">Open</span></li>
+          <li><span class="pill pending">Requested</span></li>
+          <li><span class="pill taken">Taken</span></li>
+          <li><span class="pill closed">Closed</span></li>
+          <li><span class="pill you">You</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel mine" id="mine" hidden aria-labelledby="mine-title">
+      <h2 id="mine-title">Your requests</h2>
+      <ul id="mine-list"></ul>
+      <p class="hint">Need to cancel one? Tell your manager.</p>
+    </section>
+
+    <div id="board">
+      <p class="notice">Loading the board…</p>
+    </div>
+  </div>
+</main>
+
+<!-- ======================= Manager view ======================= -->
+<main id="manager-view" hidden>
+  <div class="wrap">
+    <div class="mgr">
+      <section class="panel" id="signin-panel">
+        <form class="signin" id="signin-form">
+          <h2>Manager sign-in</h2>
+          <p class="sub">Approve requests, assign routes and set up the weekends.</p>
+          <div class="field">
+            <label for="passcode">Manager passcode</label>
+            <input id="passcode" type="password" autocomplete="current-password" required>
+            <p class="hint" id="signin-hint"></p>
+          </div>
+          <div class="row-form">
+            <button class="btn" type="submit" id="signin-btn">Sign in</button>
+            <a href="#" class="btn quiet">Back to the board</a>
+          </div>
+        </form>
+      </section>
+
+      <div id="mgr-tools" hidden>
+        <section class="panel mgr-top">
+          <p class="nothing">Signed in as manager.</p>
+          <div class="row-form">
+            <a href="#" class="btn quiet small">View the board</a>
+            <button class="btn quiet small" type="button" id="signout">Sign out</button>
+          </div>
+        </section>
+
+        <div class="mgr-cols" style="margin-top:18px">
+          <section class="panel" aria-labelledby="pending-title">
+            <h2 id="pending-title">Waiting for approval <span class="count" id="pending-count"></span></h2>
+            <p class="sub">Requests are listed in the order they came in. Approving one person declines everyone else who asked for that route and date.</p>
+            <div id="pending-list"></div>
+          </section>
+
+          <section class="panel" aria-labelledby="assigned-title">
+            <h2 id="assigned-title">Assigned <span class="count" id="assigned-count"></span></h2>
+            <p class="sub">Release a route if someone can't work it. It goes back to open.</p>
+            <div id="assigned-list"></div>
+          </section>
+        </div>
+
+        <div class="mgr-cols" style="margin-top:18px">
+          <section class="panel" aria-labelledby="assign-title">
+            <h2 id="assign-title">Assign or close a route</h2>
+            <p class="sub">Give a route to someone who asked in person or by text. Or close a route for one day so nobody can request it.</p>
+            <form id="assign-form" class="row-form">
+              <div class="field">
+                <label for="assign-date">Date</label>
+                <select id="assign-date" required></select>
+              </div>
+              <div class="field">
+                <label for="assign-route">Route</label>
+                <select id="assign-route" required></select>
+              </div>
+              <div class="field" style="flex-basis:100%">
+                <label for="assign-name">Name</label>
+                <input id="assign-name" type="text" maxlength="60" required placeholder="First and last name">
+              </div>
+              <button class="btn" type="submit">Assign route</button>
+              <button class="btn quiet" type="button" id="close-slot">Close for this day</button>
+            </form>
+            <h3 class="date-head mail-log-title">Closed</h3>
+            <ul class="plain-list" id="closed-list"></ul>
+          </section>
+
+          <section class="panel" aria-labelledby="dates-title">
+            <h2 id="dates-title">Dates</h2>
+            <p class="sub">Open a Saturday or Sunday to add it to the board. Closing a date declines its pending requests.</p>
+            <ul class="plain-list" id="dates-list"></ul>
+            <form id="date-form" class="row-form" style="margin-top:12px">
+              <div class="field">
+                <label for="new-date">Add a date</label>
+                <input id="new-date" type="date" required>
+              </div>
+              <button class="btn" type="submit">Open date</button>
+            </form>
+          </section>
+
+          <section class="panel routes-panel" aria-labelledby="routes-title">
+            <h2 id="routes-title">Routes</h2>
+            <p class="sub">Add routes with details drivers should know, like start time, where to report and the area covered. Drivers see the details on the board. Retiring a route hides it and declines its pending requests.</p>
+            <div class="routes-body">
+              <ul class="plain-list" id="routes-list"></ul>
+              <form id="route-form" class="route-form">
+                <h3 id="route-form-title">Add a route</h3>
+                <div class="row-form">
+                  <div class="field">
+                    <label for="new-route">Route code</label>
+                    <input id="new-route" type="text" maxlength="20" required placeholder="SCCOL26" autocapitalize="characters">
+                  </div>
+                  <div class="field">
+                    <label for="new-route-day">Runs on</label>
+                    <select id="new-route-day">
+                      <option>Saturday</option>
+                      <option>Sunday</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row-form">
+                  <div class="field">
+                    <label for="route-start">Start time <span class="opt">(optional)</span></label>
+                    <input id="route-start" type="time">
+                  </div>
+                  <div class="field">
+                    <label for="route-location">Report to <span class="opt">(optional)</span></label>
+                    <input id="route-location" type="text" maxlength="120" placeholder="Where the route starts">
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="route-area">Area covered <span class="opt">(optional)</span></label>
+                  <input id="route-area" type="text" maxlength="200" placeholder="Towns or clients on the route">
+                </div>
+                <div class="field">
+                  <label for="route-notes">Notes <span class="opt">(optional)</span></label>
+                  <textarea id="route-notes" rows="3" maxlength="500" placeholder="Anything else drivers should know, like keys, coolers or pickup times"></textarea>
+                </div>
+                <div class="field">
+                  <span class="label">More details <span class="opt">(optional)</span></span>
+                  <div class="extras" id="extras-list"></div>
+                  <button type="button" class="link-btn add-extra" id="add-extra">+ Add a detail</button>
+                </div>
+                <div class="row-form">
+                  <button class="btn" type="submit" id="route-save">Add route</button>
+                  <button class="btn quiet" type="button" id="route-cancel">Clear</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="pass-title">
+            <h2 id="pass-title">Passcode</h2>
+            <p class="sub">Changing it signs out anyone else using the old one.</p>
+            <form id="pass-form" class="row-form">
+              <div class="field">
+                <label for="new-pass">New passcode</label>
+                <input id="new-pass" type="password" minlength="8" required autocomplete="new-password">
+              </div>
+              <div class="field">
+                <label for="new-pass-2">Type it again</label>
+                <input id="new-pass-2" type="password" minlength="8" required autocomplete="new-password">
+              </div>
+              <button class="btn" type="submit">Change passcode</button>
+            </form>
+          </section>
+
+          <section class="panel" aria-labelledby="mail-title">
+            <h2 id="mail-title">Email</h2>
+            <p class="sub">New requests are emailed to the alert address. Drivers who add their email get approval notices and evening-before reminders.</p>
+            <p class="mail-status" id="mail-status">Checking email setup…</p>
+            <form id="alert-form" class="row-form">
+              <div class="field">
+                <label for="alert-email">Send new-request alerts to</label>
+                <input id="alert-email" type="email" inputmode="email" maxlength="254" placeholder="supervisor@example.com">
+              </div>
+              <button class="btn" type="submit">Save</button>
+            </form>
+            <form id="mailer-form" class="row-form" style="margin-top:12px">
+              <div class="field">
+                <label for="mailer-url">Gmail sender link</label>
+                <input id="mailer-url" type="url" placeholder="https://script.google.com/macros/s/…/exec">
+              </div>
+              <button class="btn quiet" type="submit">Save link</button>
+            </form>
+            <div class="row-form" style="margin-top:12px">
+              <button class="btn quiet" type="button" id="test-mail">Send a test email</button>
+            </div>
+            <h3 class="date-head mail-log-title">Recent emails</h3>
+            <ul class="plain-list" id="mail-log"></ul>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span id="updated">Checks for changes every 20 seconds.</span>
+    <span class="footer-actions">
+      <button type="button" class="btn quiet small print-btn" id="print-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4v-7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Print schedule</button>
+      <a href="#manager" id="manager-link">Manager sign-in</a>
+    </span>
+  </div>
+</footer>
+
+<!-- Filled in right before printing; only visible on paper. -->
+<section id="print-sheet" aria-hidden="true"></section>
+
+<div class="bar" id="bar" hidden>
+  <div class="wrap">
+    <div class="bar-text" aria-live="polite">
+      <b id="bar-count">0 selected</b>
+      <p id="bar-list"></p>
+    </div>
+    <div class="bar-actions">
+      <button class="btn quiet" type="button" id="bar-clear">Clear</button>
+      <button class="btn" type="button" id="bar-send">Send requests</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden>
+  <ul id="toast-lines"></ul>
+  <button type="button" id="toast-close" aria-label="Dismiss">Close</button>
+</div>
+
+<noscript><p class="wrap">This page needs JavaScript turned on.</p></noscript>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Backend (public, read-mostly key; the database only allows the actions below) ----
+  var SUPABASE_URL = 'https://sdatzfrdoquyyfstlarv.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_DUYS_6Wn505abdS6B0w4Eg_18Husr4v';
+  var POLL_MS = 20000;
+
+  var state = {
+    board: null,
+    loadError: null,
+    loadedAt: null,
+    selected: new Set(),
+    showPast: false,
+    routeInfoOpen: false,
+    sending: false,
+    passcode: null,
+    busy: false
+  };
+
+  // ---------- small helpers ----------
+  function $(id) { return document.getElementById(id); }
+
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    if (props) {
+      Object.keys(props).forEach(function (k) {
+        var v = props[k];
+        if (v === null || v === undefined || v === false) return;
+        if (k === 'class') el.className = v;
+        else if (k === 'text') el.textContent = v;
+        else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+        else el.setAttribute(k, v === true ? '' : v);
+      });
+    }
+    for (var i = 2; i < arguments.length; i++) append(el, arguments[i]);
+    return el;
+  }
+  function append(el, kid) {
+    if (kid === null || kid === undefined || kid === false) return;
+    if (Array.isArray(kid)) { kid.forEach(function (k) { append(el, k); }); return; }
+    el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+
+  var storage = {
+    get: function (area, k) { try { return window[area].getItem(k); } catch (e) { return null; } },
+    set: function (area, k, v) { try { window[area].setItem(k, v); } catch (e) {} },
+    del: function (area, k) { try { window[area].removeItem(k); } catch (e) {} }
+  };
+
+  function norm(s) { return String(s || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+
+  function parseDate(s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function iso(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  var fmtShort = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+  var fmtDow = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+  var fmtMonth = new Intl.DateTimeFormat('en-US', { month: 'long' });
+  var fmtStamp = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  var fmtTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+  function shortDate(s) { return fmtShort.format(parseDate(s)); }
+  function dowDate(s) { var d = parseDate(s); return fmtDow.format(d) + ' ' + fmtShort.format(d); }
+  function weekdayOf(s) { return parseDate(s).getDay() === 6 ? 'Saturday' : 'Sunday'; }
+  function ordinal(n) {
+    var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+  function fmtClock(t) {
+    if (!t) return '';
+    var p = String(t).split(':'), hh = Number(p[0]);
+    return (hh % 12 || 12) + ':' + (p[1] || '00') + ' ' + (hh >= 12 ? 'PM' : 'AM');
+  }
+  function hasDetails(r) {
+    return !!(r.start || r.location || r.area || r.notes || (r.extras && r.extras.length));
+  }
+  // Short line shown under a route on the board.
+  function routeShort(r) {
+    return [r.start ? 'Starts ' + fmtClock(r.start) : null, r.area || r.location].filter(Boolean).join(' · ');
+  }
+  function splitCode(code) {
+    var m = /^([A-Z-]+?)(\d[\dA-Z-]*)$/.exec(code);
+    return m ? [m[1], m[2]] : ['', code];
+  }
+
+  var ICON_CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var ICON_LOCK = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="9" width="12" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 9V7a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+  function svg(markup, cls) { var s = h('span', { class: cls, 'aria-hidden': 'true' }); s.innerHTML = markup; return s; }
+
+  // ---------- API ----------
+  function rpc(fn, args) {
+    return fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args || {})
+    }).then(function (res) {
+      if (res.ok) return res.json();
+      return res.json().catch(function () { return {}; }).then(function (j) {
+        throw new Error(j.message || ('The server answered with error ' + res.status + '. Try again.'));
+      });
+    }, function () {
+      throw new Error("Can't reach the server. Check your connection and try again.");
+    });
+  }
+
+  // ---------- derived data ----------
+  function slotMap() {
+    var map = new Map();
+    (state.board ? state.board.requests : []).forEach(function (r) {
+      var key = r.route + '|' + r.date;
+      var s = map.get(key);
+      if (!s) { s = { approved: null, pending: [] }; map.set(key, s); }
+      if (r.status === 'approved') s.approved = r;
+      else if (r.status === 'pending') s.pending.push(r);
+    });
+    ((state.board && state.board.closed) || []).forEach(function (c) {
+      var key = c.route + '|' + c.date;
+      var s = map.get(key);
+      if (!s) { s = { approved: null, pending: [] }; map.set(key, s); }
+      s.closed = true;
+    });
+    return map;
+  }
+  function routesFor(date) {
+    var day = weekdayOf(date);
+    return state.board.routes.filter(function (r) { return r.weekday === day; });
+  }
+  function isPast(date) { return date < state.board.today; }
+  function myName() { return norm($('your-name').value); }
+
+  function weekendsOf(dates) {
+    var map = new Map();
+    dates.forEach(function (d) {
+      var dt = parseDate(d);
+      if (dt.getDay() === 0) dt.setDate(dt.getDate() - 1);
+      var k = iso(dt);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(d);
+    });
+    return Array.from(map.keys()).sort().map(function (k) { return { key: k, dates: map.get(k).sort() }; });
+  }
+
+  function slotStatus(s, date) {
+    if (s && s.approved) return 'taken';
+    if (s && s.closed) return 'closed';
+    if (isPast(date)) return 'past';
+    if (s && s.pending.length) return 'pending';
+    return 'open';
+  }
+
+  // ---------- rendering: header ----------
+  function renderHeader() {
+    var b = state.board;
+    if (!b) return;
+    var upcoming = b.dates.filter(function (d) { return !isPast(d); });
+    var months = [];
+    upcoming.forEach(function (d) {
+      var m = fmtMonth.format(parseDate(d));
+      if (months.indexOf(m) === -1) months.push(m);
+    });
+    $('title').textContent = months.length === 1 ? months[0] + ' weekend routes'
+      : months.length === 2 ? months[0] + ' & ' + months[1] + ' weekend routes'
+      : 'Weekend routes';
+
+    var map = slotMap(), counts = { open: 0, pending: 0, taken: 0, closed: 0 };
+    upcoming.forEach(function (d) {
+      routesFor(d).forEach(function (r) { counts[slotStatus(map.get(r.code + '|' + d), d)]++; });
+    });
+    var stats = $('stats');
+    stats.replaceChildren(
+      h('li', null, h('span', { class: 'dot open' }), h('b', { text: counts.open }), h('span', { text: 'open' })),
+      h('li', null, h('span', { class: 'dot pending' }), h('b', { text: counts.pending }), h('span', { text: 'requested' })),
+      h('li', null, h('span', { class: 'dot taken' }), h('b', { text: counts.taken }), h('span', { text: 'taken' }))
+    );
+  }
+
+  // ---------- rendering: board ----------
+  function renderBoard() {
+    var board = $('board');
+    if (!state.board) {
+      board.replaceChildren(h('p', { class: state.loadError ? 'notice error' : 'notice',
+        text: state.loadError ? "Can't load the board right now. It will keep trying. (" + state.loadError + ')' : 'Loading the board…' }));
+      return;
+    }
+    var b = state.board;
+    var nodes = [];
+    if (state.loadError) {
+      nodes.push(h('p', { class: 'notice error', text: 'Lost connection. What you see may be out of date. Retrying…' }));
+    }
+    if (!b.dates.length || !b.routes.length) {
+      nodes.push(h('p', { class: 'notice', text: 'No weekends are open for sign-ups yet. When your manager posts new dates, they will show up here.' }));
+      board.replaceChildren.apply(board, nodes);
+      return;
+    }
+
+    var map = slotMap();
+    var me = myName();
+    var weekends = weekendsOf(b.dates);
+    var past = weekends.filter(function (w) { return w.dates.every(isPast); });
+    var current = weekends.filter(function (w) { return !w.dates.every(isPast); });
+
+    var info = routeInfoEl();
+    if (info) nodes.push(info);
+
+    var shown = state.showPast ? past.concat(current) : current;
+    if (!current.length && !state.showPast) {
+      nodes.push(h('p', { class: 'notice', text: 'All open weekends have passed. New dates will show up here when they are posted.' }));
+    }
+    shown.forEach(function (w) { nodes.push(weekendEl(w, map, me)); });
+
+    if (past.length) {
+      nodes.push(h('p', { class: 'more' }, h('button', {
+        type: 'button', class: 'link-btn',
+        text: state.showPast ? 'Hide past weekends' : 'Show ' + past.length + ' past weekend' + (past.length === 1 ? '' : 's'),
+        onclick: function () { state.showPast = !state.showPast; renderBoard(); }
+      })));
+    }
+    board.replaceChildren.apply(board, nodes);
+  }
+
+  function weekendEl(w, map, me) {
+    var first = w.dates[0], last = w.dates[w.dates.length - 1];
+    var a = parseDate(first), z = parseDate(last);
+    var label = first === last ? shortDate(first)
+      : a.getMonth() === z.getMonth() ? fmtShort.format(a) + '–' + z.getDate()
+      : fmtShort.format(a) + ' – ' + fmtShort.format(z);
+    var openCount = 0;
+    w.dates.forEach(function (d) {
+      routesFor(d).forEach(function (r) {
+        var st = slotStatus(map.get(r.code + '|' + d), d);
+        if (st === 'open' || st === 'pending') openCount++;
+      });
+    });
+    return h('section', { class: 'weekend', 'aria-label': 'Weekend of ' + label },
+      h('div', { class: 'weekend-head' },
+        h('h2', { text: label }),
+        h('span', { text: w.dates.every(isPast) ? 'Past' : openCount + ' not yet taken' })
+      ),
+      h('div', { class: 'days' }, w.dates.map(function (d) { return dayEl(d, map, me); }))
+    );
+  }
+
+  function dayEl(date, map, me) {
+    var routes = routesFor(date);
+    var list = routes.length
+      ? h('ul', { class: 'slots' }, routes.map(function (r) { return h('li', null, slotEl(r, date, map.get(r.code + '|' + date), me)); }))
+      : h('p', { class: 'empty-day', text: 'No routes listed for this day.' });
+    return h('article', { class: 'panel day' },
+      h('header', { class: 'day-head' },
+        h('h3', { text: weekdayOf(date) }),
+        h('span', { text: shortDate(date) })
+      ),
+      list
+    );
+  }
+
+  function codeEl(code) {
+    var parts = splitCode(code);
+    return h('span', { class: 'code' }, parts[0] ? h('small', { text: parts[0] }) : null, h('b', { text: parts[1] }));
+  }
+
+  // A route row on the board, with its short details underneath.
+  function slotEl(route, date, s, me) {
+    var el = slotCore(route, date, s, me);
+    var short = routeShort(route);
+    if (short) {
+      el.append(h('span', { class: 'slot-details', text: short }));
+      el.setAttribute('aria-label', el.getAttribute('aria-label') + ' (' + short + ')');
+    }
+    return el;
+  }
+
+  // Every route that has details, in one expandable section above the weekends.
+  function routeInfoEl() {
+    var withInfo = state.board.routes.filter(hasDetails);
+    if (!withInfo.length) return null;
+    return h('details', {
+      class: 'panel route-info', open: state.routeInfoOpen,
+      ontoggle: function (e) { state.routeInfoOpen = e.currentTarget.open; }
+    },
+      h('summary', null,
+        h('span', { class: 'ri-title', text: 'Route details' }),
+        h('span', { class: 'hint', text: 'Start times, where to report and more' })
+      ),
+      h('div', { class: 'ri-grid' }, withInfo.map(function (r) {
+        var rows = [];
+        function row(label, value) { if (value) rows.push(h('dt', { text: label }), h('dd', { text: value })); }
+        row('Starts', fmtClock(r.start));
+        row('Report to', r.location);
+        row('Area', r.area);
+        (r.extras || []).forEach(function (x) { row(x.label, x.value); });
+        row('Notes', r.notes);
+        return h('article', { class: 'ri-card' },
+          h('h3', null, codeEl(r.code), h('span', { text: r.weekday + 's' })),
+          h('dl', null, rows)
+        );
+      }))
+    );
+  }
+
+  function slotCore(route, date, s, me) {
+    var status = slotStatus(s, date);
+    var key = route.code + '|' + date;
+    var where = route.code + ', ' + weekdayOf(date) + ' ' + shortDate(date);
+
+    if (status === 'taken') {
+      var mine = me && norm(s.approved.name) === me;
+      return h('div', { class: 'slot taken', 'aria-label': where + ': taken by ' + s.approved.name },
+        svg(ICON_LOCK, 'lock'),
+        codeEl(route.code),
+        h('span', { class: 'state' },
+          mine ? h('span', { class: 'pill you', text: 'You' }) : h('span', { class: 'pill taken', text: 'Taken' }),
+          h('span', { class: 'who', text: s.approved.name })
+        )
+      );
+    }
+
+    if (status === 'closed') {
+      return h('div', { class: 'slot closed', 'aria-label': where + ': closed, not running this day' },
+        svg(ICON_LOCK, 'lock'),
+        codeEl(route.code),
+        h('span', { class: 'state' },
+          h('span', { class: 'pill closed', text: 'Closed' }),
+          h('span', { class: 'who quiet', text: 'Not running this day' })
+        )
+      );
+    }
+
+    if (status === 'past') {
+      return h('div', { class: 'slot past', 'aria-label': where + ': date has passed' },
+        h('span'), codeEl(route.code),
+        h('span', { class: 'state' }, h('span', { class: 'who quiet', text: 'Not filled' }))
+      );
+    }
+
+    var pending = s ? s.pending : [];
+    var iAsked = me && pending.some(function (r) { return norm(r.name) === me; });
+    if (iAsked) {
+      var others = pending.filter(function (r) { return norm(r.name) !== me; });
+      return h('div', { class: 'slot', 'aria-label': where + ': you asked, waiting for approval' },
+        h('span'), codeEl(route.code),
+        h('span', { class: 'state' },
+          h('span', { class: 'pill you', text: 'You asked' }),
+          h('span', { class: 'who quiet', text: others.length ? 'Also asked: ' + others.map(function (r) { return r.name; }).join(', ') : 'Waiting for approval' })
+        )
+      );
+    }
+
+    var selected = state.selected.has(key);
+    var stateEl = pending.length
+      ? h('span', { class: 'state' },
+          h('span', { class: 'pill pending', text: 'Requested' }),
+          h('span', { class: 'who', text: pending.map(function (r) { return r.name; }).join(', ') }))
+      : h('span', { class: 'state' }, h('span', { class: 'pill open', text: 'Open' }));
+
+    var label = where + ': ' + (pending.length ? 'requested by ' + pending.map(function (r) { return r.name; }).join(', ') : 'open') +
+      (selected ? '. Selected.' : '. Tap to select.');
+
+    return h('button', {
+      type: 'button', class: 'slot ' + status, 'aria-pressed': selected ? 'true' : 'false',
+      'aria-label': label, disabled: state.sending,
+      onclick: function () {
+        if (state.selected.has(key)) state.selected.delete(key); else state.selected.add(key);
+        renderBoard(); renderBar();
+      }
+    }, svg(ICON_CHECK, 'check'), codeEl(route.code), stateEl);
+  }
+
+  // ---------- rendering: my requests ----------
+  var STATUS_LABEL = { pending: 'Waiting', approved: 'Approved', declined: 'Declined', released: 'Released' };
+  function renderMine() {
+    var me = myName(), box = $('mine');
+    if (!state.board || !me) { box.hidden = true; return; }
+    var mine = state.board.requests.filter(function (r) { return norm(r.name) === me; });
+    if (!mine.length) { box.hidden = true; return; }
+    mine.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.route < b.route ? -1 : 1; });
+    $('mine-list').replaceChildren.apply($('mine-list'), mine.map(function (r) {
+      var reminderOn = r.remind && (r.status === 'pending' || r.status === 'approved') && !isPast(r.date);
+      return h('li', null,
+        h('span', { class: 'what', text: r.route }),
+        h('span', { class: 'when', text: weekdayOf(r.date) + ', ' + shortDate(r.date) }),
+        reminderOn ? h('span', { class: 'reminder-note', text: 'Email reminder on' }) : null,
+        h('span', { class: 'pill ' + r.status, text: STATUS_LABEL[r.status] || r.status })
+      );
+    }));
+    box.hidden = false;
+  }
+
+  // ---------- send bar ----------
+  function selectedItems() {
+    return Array.from(state.selected).map(function (k) { var p = k.split('|'); return { route: p[0], date: p[1] }; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.route < b.route ? -1 : 1; });
+  }
+  function renderBar() {
+    var n = state.selected.size, bar = $('bar');
+    var onBoard = !$('board-view').hidden;
+    bar.hidden = !(n && onBoard);
+    document.body.classList.toggle('has-bar', !bar.hidden);
+    if (!n) return;
+    $('bar-count').textContent = n + ' selected';
+    $('bar-list').textContent = selectedItems().map(function (i) { return i.route + ' ' + dowDate(i.date); }).join(' · ');
+    $('bar-send').textContent = state.sending ? 'Sending…' : (n === 1 ? 'Send request' : 'Send ' + n + ' requests');
+    $('bar-send').disabled = state.sending;
+    $('bar-clear').disabled = state.sending;
+  }
+
+  function nameProblem(show) {
+    var input = $('your-name'), hint = $('name-hint');
+    input.classList.toggle('invalid', !!show);
+    hint.classList.toggle('error', !!show);
+    hint.textContent = show ? 'Enter your name before sending requests.' : 'Goes on your requests. This phone remembers it.';
+  }
+
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function emailProblem(show) {
+    var input = $('your-email'), hint = $('email-hint');
+    input.classList.toggle('invalid', !!show);
+    hint.classList.toggle('error', !!show);
+    hint.textContent = show ? 'Check your email address, or leave it blank.' : 'Get an email when a request is approved or declined. It never shows on the board.';
+  }
+
+  // Ask the server to send any emails that are now due. Safe to call any time.
+  function flushEmail() { rpc('flush_notifications').catch(function () {}); }
+
+  function sendRequests() {
+    var name = $('your-name').value.trim().replace(/\s+/g, ' ');
+    if (name.length < 2) {
+      nameProblem(true);
+      $('your-name').focus();
+      $('your-name').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    var email = $('your-email').value.trim();
+    if (email && !EMAIL_RE.test(email)) {
+      emailProblem(true);
+      $('your-email').focus();
+      $('your-email').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    var remind = $('remind-me').checked;
+    storage.set('localStorage', 'wr-name', name);
+    if (email) storage.set('localStorage', 'wr-email', email); else storage.del('localStorage', 'wr-email');
+    storage.set('localStorage', 'wr-remind', remind ? '1' : '0');
+    var items = selectedItems();
+    state.sending = true;
+    renderBar(); renderBoard();
+    var results = [];
+    var chain = Promise.resolve();
+    items.forEach(function (it) {
+      chain = chain.then(function () {
+        return rpc('request_route', { p_route: it.route, p_date: it.date, p_name: name, p_email: email, p_remind: remind }).then(function (r) {
+          results.push({ it: it, ok: !!r.ok, error: r.error });
+        }, function (e) {
+          results.push({ it: it, ok: false, error: e.message });
+        });
+      });
+    });
+    chain.then(function () {
+      results.forEach(function (r) { if (r.ok) state.selected.delete(r.it.route + '|' + r.it.date); });
+      state.sending = false;
+      var good = results.filter(function (r) { return r.ok; });
+      var bad = results.filter(function (r) { return !r.ok; });
+      var lines = [];
+      if (good.length) {
+        flushEmail();
+        lines.push({ cls: 'good', text: 'Sent ' + good.length + ' request' + (good.length === 1 ? '' : 's') + '. Your manager will approve or decline ' + (good.length === 1 ? 'it' : 'them') + '.' +
+          (email ? ' You’ll get an email at ' + email + ' when they do.' : '') });
+      }
+      bad.forEach(function (r) { lines.push({ cls: 'bad', text: r.it.route + ' ' + dowDate(r.it.date) + ': ' + (r.error || 'Not sent.') }); });
+      toast(lines, bad.length ? 0 : 7000);
+      return load();
+    });
+  }
+
+  // ---------- toast ----------
+  var toastTimer = null;
+  function toast(lines, ms) {
+    if (typeof lines === 'string') lines = [{ cls: '', text: lines }];
+    var list = $('toast-lines');
+    list.replaceChildren.apply(list, lines.map(function (l) { return h('li', { class: l.cls || '', text: l.text }); }));
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    if (ms) toastTimer = setTimeout(function () { $('toast').hidden = true; }, ms);
+  }
+
+  // ---------- manager ----------
+  function isWrongPass(msg) { return /passcode is wrong|No manager passcode/i.test(msg || ''); }
+
+  function signOut(message) {
+    state.passcode = null;
+    mail.data = null;
+    storage.del('sessionStorage', 'wr-pass');
+    $('passcode').value = '';
+    $('signin-hint').textContent = message || '';
+    $('signin-hint').classList.toggle('error', !!message);
+    renderManager();
+  }
+
+  function mgr(fn, args, okText) {
+    if (state.busy) return Promise.resolve();
+    state.busy = true;
+    var payload = Object.assign({ p_passcode: state.passcode }, args);
+    return rpc(fn, payload).then(function (r) {
+      if (r.ok) {
+        flushEmail();
+        toast([{ cls: 'good', text: typeof okText === 'function' ? okText(r) : okText }], 6000);
+        return true;
+      }
+      if (isWrongPass(r.error)) { signOut('Your passcode no longer works. Sign in again.'); return false; }
+      toast([{ cls: 'bad', text: r.error || 'That did not work.' }], 0);
+      return false;
+    }, function (e) {
+      toast([{ cls: 'bad', text: e.message }], 0);
+      return false;
+    }).then(function (ok) {
+      state.busy = false;
+      return load().then(function () { return ok; });
+    });
+  }
+
+  // A button that needs a second tap to confirm.
+  function confirmBtn(label, armedLabel, onConfirm) {
+    var timer = null;
+    var btn = h('button', { type: 'button', class: 'btn bad small', text: label });
+    btn.addEventListener('click', function () {
+      if (btn.classList.contains('armed')) {
+        clearTimeout(timer);
+        btn.disabled = true;
+        onConfirm();
+        return;
+      }
+      btn.classList.add('armed');
+      btn.textContent = armedLabel;
+      timer = setTimeout(function () { btn.classList.remove('armed'); btn.textContent = label; }, 4000);
+    });
+    return btn;
+  }
+
+  // ---------- manager: email ----------
+  var mail = { data: null, loading: false };
+  var MAIL_KIND = { alert: 'New-request alert', decision: 'Approval notice', reminder: 'Reminder', test: 'Test email' };
+
+  function mailResult(m) {
+    var c = m.content || '';
+    if (m.error_msg) return { cls: 'declined', text: 'Failed: ' + m.error_msg };
+    if (m.timed_out) return { cls: 'declined', text: 'Timed out' };
+    if (m.status_code === null || m.status_code === undefined) {
+      var age = Date.now() - new Date(m.queued_at).getTime();
+      return age < 5 * 60 * 1000 ? { cls: 'pending', text: 'Sending…' } : { cls: 'taken', text: 'Handed off' };
+    }
+    if (/"ok"\s*:\s*false/.test(c)) {
+      var why = /"error"\s*:\s*"([^"]*)"/.exec(c);
+      return { cls: 'declined', text: 'Not sent' + (why ? ': ' + why[1] : '') };
+    }
+    if (/Exception:|TypeError:|Script function not found|Authorization is required/i.test(c)) {
+      return { cls: 'declined', text: 'Apps Script error' };
+    }
+    if (m.status_code >= 200 && m.status_code < 400) return { cls: 'open', text: 'Sent' };
+    return { cls: 'declined', text: 'Failed (error ' + m.status_code + ')' };
+  }
+
+  function loadMail() {
+    if (!state.passcode || mail.loading) return Promise.resolve();
+    mail.loading = true;
+    return rpc('manager_mail_status', { p_passcode: state.passcode }).then(function (r) {
+      if (r.ok) { mail.data = r; renderMail(); }
+      else if (isWrongPass(r.error)) signOut('Your passcode no longer works. Sign in again.');
+    }, function () {}).then(function () { mail.loading = false; });
+  }
+
+  function renderMail() {
+    var d = mail.data;
+    if (!d) return;
+    var status = $('mail-status'), alertInput = $('alert-email');
+    if (document.activeElement !== alertInput && !alertInput.dataset.dirty) alertInput.value = d.alert_email || '';
+    if (!d.link_saved) {
+      status.className = 'mail-status warn';
+      status.textContent = 'Email is off. Paste the Gmail sender link below to turn it on.';
+    } else if (!d.key_saved) {
+      status.className = 'mail-status warn';
+      status.textContent = 'The sender key is missing, so no email can go out. Ask whoever set up the site to add it.';
+    } else if (!d.alert_email) {
+      status.className = 'mail-status warn';
+      status.textContent = 'Email is on for drivers. Add an alert address to hear about new requests.';
+    } else {
+      status.className = 'mail-status good';
+      status.textContent = 'Email is on. New-request alerts go to ' + d.alert_email + '.';
+    }
+    $('mailer-url').placeholder = d.link_saved ? 'Link saved' :'https://script.google.com/macros/s/…/exec';
+    var log = $('mail-log');
+    if (!d.recent.length) {
+      log.replaceChildren(h('li', null, h('span', { class: 'meta', text: 'No emails sent yet.' })));
+    } else {
+      log.replaceChildren.apply(log, d.recent.map(function (m) {
+        var res = mailResult(m);
+        return h('li', null,
+          h('span', { class: 'mail-what' },
+            h('span', { class: 'name', text: (MAIL_KIND[m.kind] || m.kind) + ' to ' + m.to_email }),
+            h('span', { class: 'meta', text: fmtStamp.format(new Date(m.queued_at)) })
+          ),
+          h('span', { class: 'pill ' + res.cls, text: res.text })
+        );
+      }));
+    }
+  }
+
+  function renderManager() {
+    var signedIn = !!state.passcode;
+    $('signin-panel').hidden = signedIn;
+    $('mgr-tools').hidden = !signedIn;
+    if (signedIn && !mail.data) loadMail();
+    if (!signedIn || !state.board) return;
+
+    var b = state.board;
+    var routeOrder = new Map(b.routes.map(function (r, i) { return [r.code, i]; }));
+    function bySlot(a, z) {
+      if (a.date !== z.date) return a.date < z.date ? -1 : 1;
+      return (routeOrder.get(a.route) || 0) - (routeOrder.get(z.route) || 0);
+    }
+
+    // Pending, grouped by route + date
+    var pending = b.requests.filter(function (r) { return r.status === 'pending'; });
+    $('pending-count').textContent = pending.length ? '(' + pending.length + ')' : '';
+    var groups = new Map();
+    pending.forEach(function (r) {
+      var k = r.route + '|' + r.date;
+      if (!groups.has(k)) groups.set(k, { route: r.route, date: r.date, reqs: [] });
+      groups.get(k).reqs.push(r);
+    });
+    var gl = Array.from(groups.values()).sort(bySlot);
+    var pendingBox = $('pending-list');
+    if (!gl.length) {
+      pendingBox.replaceChildren(h('p', { class: 'nothing', text: 'Nothing waiting. New requests show up here.' }));
+    } else {
+      pendingBox.replaceChildren.apply(pendingBox, gl.map(function (g) {
+        g.reqs.sort(function (a, z) { return a.created_at < z.created_at ? -1 : 1; });
+        return h('div', { class: 'group' },
+          h('div', { class: 'group-head' },
+            h('b', { text: g.route + ' · ' + dowDate(g.date) }),
+            h('span', { text: g.reqs.length === 1 ? '1 request' : g.reqs.length + ' people asked' })
+          ),
+          g.reqs.map(function (r, i) {
+            return h('div', { class: 'req' },
+              h('div', { class: 'person' },
+                h('b', { text: r.name }),
+                h('span', { text: (g.reqs.length > 1 ? ordinal(i + 1) + ' to ask · ' : 'Asked ') + fmtStamp.format(new Date(r.created_at)) })
+              ),
+              h('div', { class: 'actions' },
+                h('button', { type: 'button', class: 'btn good small', text: 'Approve', onclick: function (e) {
+                  e.currentTarget.disabled = true;
+                  mgr('decide_request', { p_request_id: r.id, p_action: 'approve' }, function (res) {
+                    return 'Approved ' + r.name + ' for ' + r.route + ' on ' + dowDate(r.date) + '.' +
+                      (res.declined_others ? ' Declined ' + res.declined_others + ' other request' + (res.declined_others === 1 ? '' : 's') + ' for that slot.' : '');
+                  });
+                } }),
+                h('button', { type: 'button', class: 'btn quiet small', text: 'Decline', onclick: function (e) {
+                  e.currentTarget.disabled = true;
+                  mgr('decide_request', { p_request_id: r.id, p_action: 'decline' }, 'Declined ' + r.name + ' for ' + r.route + ' on ' + dowDate(r.date) + '.');
+                } })
+              )
+            );
+          })
+        );
+      }));
+    }
+
+    // Assigned (approved), upcoming first
+    var approved = b.requests.filter(function (r) { return r.status === 'approved' && !isPast(r.date); }).sort(bySlot);
+    $('assigned-count').textContent = approved.length ? '(' + approved.length + ')' : '';
+    var assignedBox = $('assigned-list');
+    if (!approved.length) {
+      assignedBox.replaceChildren(h('p', { class: 'nothing', text: 'No routes assigned yet.' }));
+    } else {
+      var nodes = [], lastDate = null, ul = null;
+      approved.forEach(function (r) {
+        if (r.date !== lastDate) {
+          lastDate = r.date;
+          nodes.push(h('h3', { class: 'date-head', text: weekdayOf(r.date) + ' ' + shortDate(r.date) }));
+          ul = h('ul', { class: 'plain-list' });
+          nodes.push(ul);
+        }
+        ul.append(h('li', null,
+          h('span', null, h('span', { class: 'name', text: r.route + ' · ' + r.name })),
+          confirmBtn('Release', 'Tap to release', function () {
+            mgr('decide_request', { p_request_id: r.id, p_action: 'release' }, r.route + ' on ' + dowDate(r.date) + ' is open again.');
+          })
+        ));
+      });
+      assignedBox.replaceChildren.apply(assignedBox, nodes);
+    }
+
+    // Closed route-days
+    var closedBox = $('closed-list');
+    var closed = (b.closed || []).filter(function (c) { return !isPast(c.date); }).sort(bySlot);
+    if (!closed.length) {
+      closedBox.replaceChildren(h('li', null, h('span', { class: 'meta', text: 'No routes closed.' })));
+    } else {
+      closedBox.replaceChildren.apply(closedBox, closed.map(function (c) {
+        return h('li', null,
+          h('span', { class: 'name', text: c.route + ' · ' + weekdayOf(c.date) + ' ' + shortDate(c.date) }),
+          h('button', { type: 'button', class: 'btn quiet small', text: 'Reopen', onclick: function (e) {
+            e.currentTarget.disabled = true;
+            mgr('set_slot_closed', { p_route: c.route, p_date: c.date, p_closed: false },
+              c.route + ' on ' + dowDate(c.date) + ' is open for requests again.');
+          } })
+        );
+      }));
+    }
+
+    // Dates
+    var datesList = $('dates-list');
+    var upcomingDates = b.dates.filter(function (d) { return !isPast(d); });
+    if (!upcomingDates.length) {
+      datesList.replaceChildren(h('li', null, h('span', { class: 'meta', text: 'No upcoming dates. Add one below.' })));
+    } else {
+      datesList.replaceChildren.apply(datesList, upcomingDates.map(function (d) {
+        return h('li', null,
+          h('span', null, h('span', { class: 'name', text: weekdayOf(d) + ', ' + shortDate(d) + ' ' + parseDate(d).getFullYear() })),
+          confirmBtn('Close', 'Tap to close', function () {
+            mgr('set_date_open', { p_date: d, p_open: false }, weekdayOf(d) + ' ' + shortDate(d) + ' is closed.');
+          })
+        );
+      }));
+    }
+
+    // Routes
+    var routesList = $('routes-list');
+    if (!b.routes.length) {
+      routesList.replaceChildren(h('li', null, h('span', { class: 'meta', text: 'No routes yet. Add one below.' })));
+    } else {
+      routesList.replaceChildren.apply(routesList, b.routes.map(function (r) {
+        var short = routeShort(r);
+        var extraCount = (r.extras || []).length + (r.notes ? 1 : 0);
+        return h('li', null,
+          h('span', { class: 'stack' },
+            h('span', { class: 'name', text: r.code + ' · ' + r.weekday + 's' }),
+            h('span', { class: 'meta', text: (short || (hasDetails(r) ? '' : 'No details yet')) +
+              (extraCount ? (short ? ' · ' : '') + '+' + extraCount + ' more' : '') })
+          ),
+          h('span', { class: 'actions-inline' },
+            h('button', { type: 'button', class: 'btn quiet small', text: 'Edit', onclick: function () { editRoute(r); } }),
+            confirmBtn('Retire', 'Tap to retire', function () {
+              mgr('retire_route', { p_code: r.code }, r.code + ' is off the board.').then(function (ok) {
+                if (ok && routeForm.editing === r.code) resetRouteForm();
+              });
+            })
+          )
+        );
+      }));
+    }
+    if (routeForm.editing && !b.routes.some(function (r) { return r.code === routeForm.editing; })) resetRouteForm();
+
+    fillAssignSelects();
+  }
+
+  // ---------- manager: route form ----------
+  var routeForm = { editing: null };
+  var extraSeq = 0;
+
+  function addExtraRow(label, value) {
+    var list = $('extras-list');
+    if (list.children.length >= 8) {
+      toast([{ cls: 'bad', text: 'A route can have up to 8 extra details.' }], 0);
+      return null;
+    }
+    var id = 'extra-' + (++extraSeq);
+    var nameInput = h('input', { type: 'text', id: id + '-label', maxlength: '40', placeholder: 'Name, like Vehicle', 'aria-label': 'Detail name' });
+    var valueInput = h('input', { type: 'text', id: id + '-value', maxlength: '200', placeholder: 'Value, like Van 12', 'aria-label': 'Detail value' });
+    nameInput.value = label || '';
+    valueInput.value = value || '';
+    var row = h('div', { class: 'extra-row' }, nameInput, valueInput,
+      h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Take out this detail', text: '×',
+        onclick: function () { row.remove(); } }));
+    list.append(row);
+    return row;
+  }
+
+  function collectExtras() {
+    return Array.from($('extras-list').children).map(function (row) {
+      var inputs = row.querySelectorAll('input');
+      return { label: inputs[0].value.trim(), value: inputs[1].value.trim() };
+    }).filter(function (x) { return x.label || x.value; });
+  }
+
+  function resetRouteForm() {
+    routeForm.editing = null;
+    $('route-form-title').textContent = 'Add a route';
+    $('new-route').value = '';
+    $('new-route').readOnly = false;
+    $('new-route-day').value = 'Saturday';
+    ['route-start', 'route-location', 'route-area', 'route-notes'].forEach(function (id) { $(id).value = ''; });
+    $('extras-list').replaceChildren();
+    $('route-save').textContent = 'Add route';
+    $('route-cancel').textContent = 'Clear';
+  }
+
+  function editRoute(r) {
+    routeForm.editing = r.code;
+    $('route-form-title').textContent = 'Edit ' + r.code;
+    $('new-route').value = r.code;
+    $('new-route').readOnly = true;
+    $('new-route-day').value = r.weekday;
+    $('route-start').value = r.start || '';
+    $('route-location').value = r.location || '';
+    $('route-area').value = r.area || '';
+    $('route-notes').value = r.notes || '';
+    $('extras-list').replaceChildren();
+    (r.extras || []).forEach(function (x) { addExtraRow(x.label, x.value); });
+    $('route-save').textContent = 'Save changes';
+    $('route-cancel').textContent = 'Cancel';
+    $('route-form').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    $('route-start').focus({ preventScroll: true });
+  }
+
+  function fillAssignSelects() {
+    var b = state.board;
+    var dateSel = $('assign-date'), routeSel = $('assign-route');
+    var keepDate = dateSel.value, keepRoute = routeSel.value;
+    var dates = b.dates.filter(function (d) { return !isPast(d); });
+    dateSel.replaceChildren.apply(dateSel, dates.length
+      ? dates.map(function (d) { return h('option', { value: d, text: weekdayOf(d) + ', ' + shortDate(d) }); })
+      : [h('option', { value: '', text: 'No upcoming dates' })]);
+    if (dates.indexOf(keepDate) !== -1) dateSel.value = keepDate;
+    var routes = dateSel.value ? routesFor(dateSel.value) : [];
+    routeSel.replaceChildren.apply(routeSel, routes.length
+      ? routes.map(function (r) { return h('option', { value: r.code, text: r.code }); })
+      : [h('option', { value: '', text: 'No routes that day' })]);
+    if (routes.some(function (r) { return r.code === keepRoute; })) routeSel.value = keepRoute;
+  }
+
+  // ---------- printed schedule ----------
+  var fmtPrinted = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+
+  function printCell(s, date) {
+    var st = slotStatus(s, date);
+    if (st === 'taken') return h('td', null, h('span', { class: 'ps-name', text: s.approved.name }));
+    if (st === 'closed') return h('td', { class: 'ps-closed', text: 'Closed' });
+    if (st === 'past') return h('td', { class: 'ps-open', text: '—' });
+    return h('td', null,
+      h('span', { class: 'ps-open', text: 'Open' }),
+      st === 'pending'
+        ? h('span', { class: 'ps-note', text: 'Requested by ' + s.pending.map(function (r) { return r.name; }).join(', ') })
+        : null
+    );
+  }
+
+  function buildPrintSheet() {
+    var sheet = $('print-sheet');
+    var printed = h('p', { class: 'ps-printed' }, h('b', { text: 'Printed' }), fmtPrinted.format(new Date()));
+    var head = h('header', { class: 'ps-head' },
+      h('div', null,
+        h('p', { class: 'ps-eyebrow', text: 'SCCOL · Weekend coverage' }),
+        h('h1', { class: 'ps-title', text: $('title').textContent })
+      ),
+      printed
+    );
+    var b = state.board;
+    if (!b) {
+      sheet.replaceChildren(head, h('p', { text: 'The schedule had not loaded yet when this was printed.' }));
+      return;
+    }
+
+    var map = slotMap();
+    var dates = b.dates.filter(function (d) { return !isPast(d); });
+    var counts = { open: 0, pending: 0, taken: 0, closed: 0 };
+    dates.forEach(function (d) {
+      routesFor(d).forEach(function (r) { counts[slotStatus(map.get(r.code + '|' + d), d)]++; });
+    });
+    var summary = h('p', { class: 'ps-summary', text:
+      (counts.open + counts.pending) + ' open' +
+      (counts.pending ? ' (' + counts.pending + ' requested, waiting for approval)' : '') +
+      ' · ' + counts.taken + ' taken' +
+      (counts.closed ? ' · ' + counts.closed + ' closed' : '') });
+
+    // One grid per weekday: routes down the side, dates across (5 dates per table).
+    var tables = [];
+    ['Saturday', 'Sunday'].forEach(function (day) {
+      var dayDates = dates.filter(function (d) { return weekdayOf(d) === day; });
+      var dayRoutes = b.routes.filter(function (r) { return r.weekday === day; });
+      if (!dayDates.length || !dayRoutes.length) return;
+      for (var i = 0; i < dayDates.length; i += 5) {
+        var chunk = dayDates.slice(i, i + 5);
+        tables.push(h('table', { class: 'ps-table' },
+          h('caption', { text: day + 's' }),
+          h('thead', null, h('tr', null,
+            h('th', { class: 'ps-route', scope: 'col', text: 'Route' }),
+            chunk.map(function (d) { return h('th', { scope: 'col', text: shortDate(d) }); })
+          )),
+          h('tbody', null, dayRoutes.map(function (r) {
+            return h('tr', null,
+              h('th', { class: 'ps-route', scope: 'row' },
+                h('b', { text: r.code }),
+                r.start ? h('small', { text: 'Starts ' + fmtClock(r.start) }) : null
+              ),
+              chunk.map(function (d) { return printCell(map.get(r.code + '|' + d), d); })
+            );
+          }))
+        ));
+      }
+    });
+    if (!tables.length) tables.push(h('p', { text: 'No upcoming weekends are on the schedule.' }));
+
+    var foot = h('p', { class: 'ps-foot', text:
+      'To ask for an open route, go to ' + location.host + '. This schedule can change after it was printed.' });
+
+    sheet.replaceChildren.apply(sheet, [head, summary].concat(tables, [foot]));
+  }
+
+  function printSchedule() {
+    buildPrintSheet();
+    window.print();
+  }
+
+  // ---------- views ----------
+  function route() {
+    var manager = location.hash === '#manager';
+    $('board-view').hidden = manager;
+    $('manager-view').hidden = !manager;
+    $('manager-link').hidden = manager;
+    $('lede').hidden = manager;
+    renderBar();
+    if (manager) {
+      renderManager();
+      if (!state.passcode) setTimeout(function () { $('passcode').focus(); }, 0);
+    }
+    window.scrollTo(0, 0);
+  }
+
+  function renderAll() {
+    renderHeader();
+    renderBoard();
+    renderMine();
+    // Drop selections that can no longer be requested.
+    if (state.board) {
+      var map = slotMap(), me = myName();
+      Array.from(state.selected).forEach(function (k) {
+        var p = k.split('|');
+        var st = slotStatus(map.get(k), p[1]);
+        var s = map.get(k);
+        var asked = me && s && s.pending.some(function (r) { return norm(r.name) === me; });
+        var exists = state.board.dates.indexOf(p[1]) !== -1 && state.board.routes.some(function (r) { return r.code === p[0]; });
+        if (!exists || st === 'taken' || st === 'closed' || st === 'past' || asked) state.selected.delete(k);
+      });
+      renderBoard();
+    }
+    renderBar();
+    if (!$('manager-view').hidden) renderManager();
+    $('updated').textContent = state.loadedAt
+      ? 'Updated ' + fmtTime.format(state.loadedAt) + '. Checks for changes every 20 seconds.'
+      : 'Checks for changes every 20 seconds.';
+  }
+
+  var loading = null;
+  function load() {
+    if (loading) return loading;
+    loading = rpc('get_board').then(function (b) {
+      state.board = b;
+      state.loadError = null;
+      state.loadedAt = new Date();
+    }, function (e) {
+      state.loadError = e.message;
+    }).then(function () {
+      loading = null;
+      renderAll();
+    });
+    return loading;
+  }
+
+  // ---------- events ----------
+  var savedName = storage.get('localStorage', 'wr-name');
+  if (savedName) $('your-name').value = savedName;
+  var savedEmail = storage.get('localStorage', 'wr-email');
+  if (savedEmail) $('your-email').value = savedEmail;
+  if (storage.get('localStorage', 'wr-remind') === '0') $('remind-me').checked = false;
+  $('your-email').addEventListener('input', function () {
+    emailProblem(false);
+    var v = $('your-email').value.trim();
+    if (!v) storage.del('localStorage', 'wr-email');
+    else if (EMAIL_RE.test(v)) storage.set('localStorage', 'wr-email', v);
+  });
+  $('remind-me').addEventListener('change', function () {
+    storage.set('localStorage', 'wr-remind', $('remind-me').checked ? '1' : '0');
+  });
+  var nameTimer = null;
+  $('your-name').addEventListener('input', function () {
+    nameProblem(false);
+    clearTimeout(nameTimer);
+    nameTimer = setTimeout(function () {
+      var v = $('your-name').value.trim();
+      if (v) storage.set('localStorage', 'wr-name', v); else storage.del('localStorage', 'wr-name');
+      renderBoard(); renderMine(); renderBar();
+    }, 300);
+  });
+
+  $('bar-clear').addEventListener('click', function () { state.selected.clear(); renderBoard(); renderBar(); });
+  $('bar-send').addEventListener('click', sendRequests);
+  $('toast-close').addEventListener('click', function () { $('toast').hidden = true; });
+
+  $('signin-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var pass = $('passcode').value;
+    var btn = $('signin-btn');
+    btn.disabled = true; btn.textContent = 'Checking…';
+    rpc('manager_login', { p_passcode: pass }).then(function (r) {
+      if (r.ok) {
+        state.passcode = pass;
+        storage.set('sessionStorage', 'wr-pass', pass);
+        $('signin-hint').textContent = '';
+        renderManager();
+      } else {
+        $('signin-hint').textContent = r.error || 'That passcode did not work.';
+        $('signin-hint').classList.add('error');
+      }
+    }, function (err) {
+      $('signin-hint').textContent = err.message;
+      $('signin-hint').classList.add('error');
+    }).then(function () { btn.disabled = false; btn.textContent = 'Sign in'; });
+  });
+
+  $('signout').addEventListener('click', function () { signOut(); });
+
+  $('alert-email').addEventListener('input', function () { $('alert-email').dataset.dirty = '1'; });
+  $('alert-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = $('alert-email').value.trim();
+    if (v && !EMAIL_RE.test(v)) { toast([{ cls: 'bad', text: 'Check the alert email address.' }], 0); return; }
+    mgr('set_alert_email', { p_email: v }, v ? 'New-request alerts will go to ' + v + '.' : 'New-request alerts are off.')
+      .then(function (ok) { if (ok) delete $('alert-email').dataset.dirty; return loadMail(); });
+  });
+  $('mailer-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = $('mailer-url').value.trim();
+    if (!v) return;
+    mgr('set_mailer_link', { p_url: v }, 'Gmail sender link saved. Send a test email to check it.')
+      .then(function (ok) { if (ok) $('mailer-url').value = ''; return loadMail(); });
+  });
+  $('test-mail').addEventListener('click', function () {
+    mgr('send_test_email', {}, function (r) { return 'Test email sent to ' + r.to + '. It should arrive within a minute.'; })
+      .then(function () { loadMail(); setTimeout(loadMail, 6000); setTimeout(loadMail, 20000); });
+  });
+
+  $('assign-date').addEventListener('change', function () { fillAssignSelects(); });
+  $('assign-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var date = $('assign-date').value, code = $('assign-route').value, name = $('assign-name').value.trim();
+    if (!date || !code || !name) return;
+    mgr('assign_route', { p_route: code, p_date: date, p_name: name }, function () {
+      return code + ' on ' + dowDate(date) + ' is assigned to ' + name + '.';
+    }).then(function (ok) { if (ok) $('assign-name').value = ''; });
+  });
+
+  // Close the chosen route on the chosen day. If people have asked for it,
+  // the first tap warns that their requests will be declined.
+  var closeArmTimer = null;
+  function disarmClose() {
+    clearTimeout(closeArmTimer);
+    $('close-slot').classList.remove('armed');
+    $('close-slot').textContent = 'Close for this day';
+  }
+  $('assign-date').addEventListener('change', disarmClose);
+  $('assign-route').addEventListener('change', disarmClose);
+  $('close-slot').addEventListener('click', function () {
+    var date = $('assign-date').value, code = $('assign-route').value, btn = $('close-slot');
+    if (!date || !code) return;
+    var s = slotMap().get(code + '|' + date);
+    if (s && s.closed) { toast([{ cls: 'bad', text: code + ' on ' + dowDate(date) + ' is already closed.' }], 0); return; }
+    var waiting = s ? s.pending.length : 0;
+    if (waiting && !btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = 'Tap again: declines ' + waiting + ' request' + (waiting === 1 ? '' : 's');
+      clearTimeout(closeArmTimer);
+      closeArmTimer = setTimeout(disarmClose, 5000);
+      return;
+    }
+    disarmClose();
+    mgr('set_slot_closed', { p_route: code, p_date: date, p_closed: true }, function (r) {
+      return code + ' on ' + dowDate(date) + ' is closed.' +
+        (r.declined ? ' Declined ' + r.declined + ' pending request' + (r.declined === 1 ? '' : 's') + '.' : '');
+    });
+  });
+
+  $('date-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = $('new-date').value;
+    if (!d) return;
+    mgr('set_date_open', { p_date: d, p_open: true }, function () { return weekdayOf(d) + ' ' + shortDate(d) + ' is open for requests.'; })
+      .then(function (ok) { if (ok) $('new-date').value = ''; });
+  });
+
+  $('route-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var code = $('new-route').value.trim().toUpperCase(), day = $('new-route-day').value;
+    if (!code) return;
+    var extras = collectExtras();
+    var half = extras.filter(function (x) { return !x.label || !x.value; });
+    if (half.length) { toast([{ cls: 'bad', text: 'Each extra detail needs both a name and a value.' }], 0); return; }
+    mgr('save_route', {
+      p_code: code,
+      p_weekday: day,
+      p_start_time: $('route-start').value,
+      p_location: $('route-location').value,
+      p_area: $('route-area').value,
+      p_notes: $('route-notes').value,
+      p_extras: extras,
+      p_is_new: !routeForm.editing
+    }, function (r) { return r.created ? code + ' is on the board for ' + day + 's.' : code + ' is updated.'; })
+      .then(function (ok) { if (ok) resetRouteForm(); });
+  });
+  $('route-cancel').addEventListener('click', function () { resetRouteForm(); });
+  $('add-extra').addEventListener('click', function () {
+    var row = addExtraRow('', '');
+    if (row) row.querySelector('input').focus();
+  });
+
+  $('pass-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var a = $('new-pass').value, b = $('new-pass-2').value;
+    if (a !== b) { toast([{ cls: 'bad', text: 'The two passcodes don’t match.' }], 0); return; }
+    mgr('change_passcode', { p_new_passcode: a }, 'Passcode changed.').then(function (ok) {
+      if (ok) {
+        state.passcode = a;
+        storage.set('sessionStorage', 'wr-pass', a);
+        $('new-pass').value = ''; $('new-pass-2').value = '';
+      }
+    });
+  });
+
+  $('print-btn').addEventListener('click', printSchedule);
+  // Also covers printing from the browser's own menu.
+  window.addEventListener('beforeprint', buildPrintSheet);
+
+  window.addEventListener('hashchange', route);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') load(); });
+  setInterval(function () {
+    if (document.visibilityState === 'visible' && !state.sending && !state.busy) load();
+  }, POLL_MS);
+
+  state.passcode = storage.get('sessionStorage', 'wr-pass');
+  route();
+  load();
+})();
+</script>
+</body>
+</html>
