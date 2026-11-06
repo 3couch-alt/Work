@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SCCOL Weekend Routes</title>
 <meta name="description" content="Request weekend routes and see which ones are open or taken.">
-<meta name="theme-color" content="#162130">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23162130'/%3E%3Cpath d='M18 46V18h28' fill='none' stroke='%23eef2f7' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='44' cy='44' r='7' fill='%237f9dff'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#1a2188">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a2188'/%3E%3Cpath d='M18 46V18h28' fill='none' stroke='%23ffffff' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='44' cy='44' r='7' fill='%234cd5f7'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
@@ -15,27 +15,33 @@
   /* Layout: a dispatch board. One section per weekend; Saturday and Sunday sit
      side by side and stack on phones. A send bar pins to the bottom while
      routes are selected. Manager tools live on their own #manager view. */
-  --bg: #edf0f4;
+  /* Colors follow Labcorp's palette: deep blue #1A2188, royal blue #3A5CE9,
+     and the cyan-to-blue logo gradient #4CD5F7 > #2998E3. Status colors
+     (open green, requested amber) stay separate so they read at a glance. */
+  --bg: #eef2fa;
   --surface: #ffffff;
-  --surface-2: #f5f7fa;
-  --ink: #162130;
-  --muted: #5b6878;
-  --line: #d6dce4;
-  --band: #162130;
-  --band-ink: #eef2f7;
-  --band-muted: #a9b6c6;
-  --accent: #2148c7;
+  --surface-2: #f4f6fd;
+  --ink: #151a3f;
+  --muted: #565e82;
+  --line: #d5dbee;
+  --band: #1a2188;
+  --band-ink: #ffffff;
+  --band-muted: #c3cbf5;
+  --brand-cyan: #4cd5f7;
+  --brand-sky: #2998e3;
+  --brand-royal: #3a5ce9;
+  --accent: #3a5ce9;
   --accent-ink: #ffffff;
-  --accent-soft: #e3e9ff;
+  --accent-soft: #e5eafd;
   --open: #12764a;
   --open-soft: #e0f2e8;
   --pending: #8a5300;
   --pending-soft: #fbeed3;
-  --taken: #3d4a5c;
-  --taken-soft: #e3e7ed;
+  --taken: #343b6b;
+  --taken-soft: #e4e7f5;
   --danger: #b42318;
   --danger-soft: #fde6e3;
-  --shadow: 0 1px 2px rgba(22, 33, 48, .06), 0 6px 20px rgba(22, 33, 48, .07);
+  --shadow: 0 1px 2px rgba(26, 33, 136, .06), 0 6px 20px rgba(26, 33, 136, .08);
   --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --font-body: "Barlow", "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
   --radius: 12px;
@@ -43,27 +49,27 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0e131a;
-    --surface: #161e29;
-    --surface-2: #1c2633;
-    --ink: #e7ecf3;
-    --muted: #9aa7b8;
-    --line: #2b3747;
-    --band: #0a0f15;
-    --band-ink: #eef2f7;
-    --band-muted: #8d9bb0;
-    --accent: #84a1ff;
-    --accent-ink: #0b1430;
-    --accent-soft: #1d2a52;
+    --bg: #0a0d26;
+    --surface: #121739;
+    --surface-2: #181f48;
+    --ink: #e9ecfb;
+    --muted: #9ea6cc;
+    --line: #283066;
+    --band: #10156a;
+    --band-ink: #ffffff;
+    --band-muted: #aeb8ee;
+    --accent: #7f97ff;
+    --accent-ink: #0a0f33;
+    --accent-soft: #1f2a6b;
     --open: #5fd398;
     --open-soft: #11301f;
     --pending: #f1b45c;
     --pending-soft: #382912;
-    --taken: #c3ccd8;
-    --taken-soft: #263141;
+    --taken: #c6cbe8;
+    --taken-soft: #232b5c;
     --danger: #ff8f85;
     --danger-soft: #3b1917;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35);
     color-scheme: dark;
   }
 }
@@ -97,6 +103,13 @@ a { color: var(--accent); }
   color: var(--band-ink);
   padding-top: env(safe-area-inset-top, 0px);
 }
+/* Thin brand stripe across the top, in the logo's cyan-to-blue gradient. */
+.band::before {
+  content: "";
+  display: block;
+  height: 5px;
+  background: linear-gradient(90deg, var(--brand-cyan), var(--brand-sky) 50%, var(--brand-royal));
+}
 .band .wrap { padding-block: 28px 44px; display: grid; gap: 18px; }
 .eyebrow {
   margin: 0;
@@ -120,7 +133,7 @@ h1 {
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; align-self: center; }
 .dot.open { background: #4cc98a; }
 .dot.pending { background: #f0ac4b; }
-.dot.taken { background: #9fb0c6; }
+.dot.taken { background: #aab4e8; }
 
 /* ---------- Name panel ---------- */
 .panel {
